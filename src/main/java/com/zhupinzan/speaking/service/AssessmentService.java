@@ -45,10 +45,9 @@ public class AssessmentService {
         record.setScoreTotal(aiResult.getTotalScore());
         
         if (aiResult.getDimensions() != null) {
-            record.setScoreFluency(aiResult.getDimensions().getVocabulary()); // 暂时用词汇分代替流利度位
+            record.setScoreFluency(aiResult.getDimensions().getVocabulary()); // 词汇分
             record.setScoreIntegrity(aiResult.getDimensions().getLogic());   // 逻辑分
-            // 文本评测没有发音分，设为 0
-            record.setScorePronunciation(BigDecimal.ZERO);
+            record.setScorePronunciation(aiResult.getDimensions().getGrammar()); // 语法分
         }
 
         // 保存原始 AI JSON 数据，方便前端展示具体的“语法建议”和“润色文本”
