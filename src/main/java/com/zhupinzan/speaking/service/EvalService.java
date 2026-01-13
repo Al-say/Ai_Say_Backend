@@ -1,66 +1,71 @@
 package com.zhupinzan.speaking.service;
 
 import com.alibaba.fastjson2.JSON;
-import com.zhupinzan.speaking.model.AssessmentResult;
 import com.zhupinzan.speaking.model.dto.EvalDTO;
 import com.zhupinzan.speaking.model.entity.AssessmentRecord;
 import com.zhupinzan.speaking.repository.AssessmentRecordRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.io.IOException;
-import java.util.List;
-import java.util.stream.Collectors;
+import java.math.BigDecimal;
 
 @Service
+@RequiredArgsConstructor
 public class EvalService {
 
     private final DeepSeekService deepSeekService;
     private final AssessmentRecordRepository recordRepository;
 
-    public EvalService(DeepSeekService deepSeekService, AssessmentRecordRepository recordRepository) {
-        this.deepSeekService = deepSeekService;
-        this.recordRepository = recordRepository;
-    }
+    public EvalDTO.TextEvalResp evaluate(EvalDTO.TextEvalReq req) throws Exception {
+        
+        // 1. 构建 System Prompt (契约的核心)
+        // 这里的 JSON 示例必须和 iOS 前端的结构 1:1 对应
+        String systemPrompt = """
+            你是一位专业的雅思口语考官。请根据【题目】评估用户的【回答】。
+            
+            【输出要求】
+            必须严格返回如下 JSON 格式，不要包含 Markdown 标记（如 ```json），不要包含其他废话：
+            {
+                "fluency": 85.0,        // 流利度/词汇丰富度 (0-100)
+                "completeness": 80.0,   // 完整度 (0-100)
+                "relevance": 90.0,      // 相关性 (0-100)
+                "grammarIssueCount": 1, // 语法错误数
+                "issues": [             // 具体错误列表
+                    { "offset": 2, "length": 4, "message": "时态错误", "replacements": ["went"] }
+                ],
+                "suggestions": ["建议1", "建议2"], // 改进建议
+                "missingKeywords": []   // 遗漏的关键点
+            }
+            注意：offset 是错误单词在原句中的起始索引（从0开始）。
+            """;
 
-    @Transactional
-    public EvalDTO.TextEvalResp evaluate(EvalDTO.TextEvalReq req) throws IOException {
-        // 调用DeepSeek
-        AssessmentResult aiResult = deepSeekService.evaluateText(req.getUserText(), req.getPrompt());
+        String userPrompt = String.format("【题目】%s\n【回答】%s", req.getPrompt(), req.getUserText());
 
-        // 映射到数据库实体
+        // 2. 调用 DeepSeek (假设 deepSeekService.chat 返回纯字符串)
+        String jsonStr = deepSeekService.chat(systemPrompt, userPrompt);
+        
+        // 清洗数据：防止 AI 偶尔带上 Markdown 标记
+        jsonStr = jsonStr.replace("```json", "").replace("```", "").trim();
+
+        // 3. 解析为 DTO
+        EvalDTO.TextEvalResp resp = JSON.parseObject(jsonStr, EvalDTO.TextEvalResp.class);
+
+        // 4. 入库 (映射 DTO -> Entity)
         AssessmentRecord record = new AssessmentRecord();
-        record.setUserId(1L); // 硬编码
-        record.setScenarioId(101L); // 硬编码
+        record.setUserId(1L); // 暂时硬编码
         record.setTranscribedText(req.getUserText());
-        record.setScoreTotal(aiResult.getTotalScore());
-        record.setScoreFluency(aiResult.getDimensions().getVocabulary());
-        record.setScoreIntegrity(aiResult.getDimensions().getLogic());
-        record.setScorePronunciation(aiResult.getDimensions().getGrammar());
-        record.setAiAnalysisRaw(JSON.toJSONString(aiResult));
+        record.setScoreFluency(BigDecimal.valueOf(resp.getFluency()));
+        record.setScoreIntegrity(BigDecimal.valueOf(resp.getCompleteness()));
+        // 总分简单取平均
+        double total = (resp.getFluency() + resp.getCompleteness() + resp.getRelevance()) / 3.0;
+        record.setScoreTotal(BigDecimal.valueOf(total));
+        record.setAiAnalysisRaw(jsonStr); // 保存原始 JSON
+        
+        record = recordRepository.save(record);
 
-        // 保存
-        AssessmentRecord saved = recordRepository.save(record);
-
-        // 构建响应
-        EvalDTO.TextEvalResp resp = new EvalDTO.TextEvalResp();
-        resp.setRecordId(saved.getRecordId());
-        resp.setFluency(saved.getScoreFluency());
-        resp.setCompleteness(saved.getScoreIntegrity());
-        resp.setRelevance(saved.getScorePronunciation()); // 假设相关性用语法分
-        resp.setGrammarIssueCount(aiResult.getGrammarErrors() != null ? aiResult.getGrammarErrors().size() : 0);
-        if (aiResult.getGrammarErrors() != null) {
-            List<EvalDTO.Issue> issues = aiResult.getGrammarErrors().stream()
-                    .map(error -> {
-                        EvalDTO.Issue issue = new EvalDTO.Issue();
-                        issue.setMessage(error);
-                        issue.setReplacements(""); // 简化
-                        return issue;
-                    })
-                    .collect(Collectors.toList());
-            resp.setIssues(issues);
-        }
-        resp.setSuggestions(aiResult.getSuggestions());
+        // 5. 补充返回字段 (ID 和 时间)
+        resp.setRecordId(record.getRecordId());
+        resp.setCreatedAt(record.getCreatedAt());
 
         return resp;
     }

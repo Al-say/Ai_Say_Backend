@@ -1,115 +1,59 @@
 package com.zhupinzan.speaking.model.dto;
 
-import java.math.BigDecimal;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import lombok.Data;
+import java.time.LocalDateTime;
 import java.util.List;
 
 public class EvalDTO {
 
+    // --- 请求体 (Request) ---
+    @Data
     public static class TextEvalReq {
-        private String prompt;
-        private String userText;
-
-        public String getPrompt() {
-            return prompt;
-        }
-
-        public void setPrompt(String prompt) {
-            this.prompt = prompt;
-        }
-
-        public String getUserText() {
-            return userText;
-        }
-
-        public void setUserText(String userText) {
-            this.userText = userText;
-        }
+        private String prompt;              // 题目
+        private String userText;            // 用户回答
+        
+        // 可选字段，允许为 null
+        private List<String> expectedKeywords; 
+        private String referenceAnswer;
     }
 
+    // --- 响应体 (Response) ---
+    @Data
+    @JsonInclude(JsonInclude.Include.NON_NULL) // 仅当字段不为null时才返回，减少传输体积
     public static class TextEvalResp {
+        // 核心必需字段
+        private Double fluency;
+        private Double completeness;
+        private Double relevance;
+
+        // 可选扩展字段
         private Long recordId;
-        private BigDecimal fluency;
-        private BigDecimal completeness;
-        private BigDecimal relevance;
         private Integer grammarIssueCount;
         private List<Issue> issues;
-        private String suggestions;
-
-        public Long getRecordId() {
-            return recordId;
-        }
-
-        public void setRecordId(Long recordId) {
-            this.recordId = recordId;
-        }
-
-        public BigDecimal getFluency() {
-            return fluency;
-        }
-
-        public void setFluency(BigDecimal fluency) {
-            this.fluency = fluency;
-        }
-
-        public BigDecimal getCompleteness() {
-            return completeness;
-        }
-
-        public void setCompleteness(BigDecimal completeness) {
-            this.completeness = completeness;
-        }
-
-        public BigDecimal getRelevance() {
-            return relevance;
-        }
-
-        public void setRelevance(BigDecimal relevance) {
-            this.relevance = relevance;
-        }
-
-        public Integer getGrammarIssueCount() {
-            return grammarIssueCount;
-        }
-
-        public void setGrammarIssueCount(Integer grammarIssueCount) {
-            this.grammarIssueCount = grammarIssueCount;
-        }
-
-        public List<Issue> getIssues() {
-            return issues;
-        }
-
-        public void setIssues(List<Issue> issues) {
-            this.issues = issues;
-        }
-
-        public String getSuggestions() {
-            return suggestions;
-        }
-
-        public void setSuggestions(String suggestions) {
-            this.suggestions = suggestions;
-        }
+        private List<String> suggestions;
+        private List<String> missingKeywords;
+        private LocalDateTime createdAt;
     }
 
+    // --- 内部对象：问题详情 ---
+    @Data
     public static class Issue {
+        private Integer offset;
+        private Integer length;
         private String message;
-        private String replacements;
+        private List<String> replacements;
+    }
+    
+    // --- 错误响应 (Error) ---
+    @Data
+    public static class ErrorResp {
+        private String code;
+        private String message;
 
-        public String getMessage() {
-            return message;
-        }
-
-        public void setMessage(String message) {
+        public ErrorResp(String code, String message) {
+            this.code = code;
             this.message = message;
-        }
-
-        public String getReplacements() {
-            return replacements;
-        }
-
-        public void setReplacements(String replacements) {
-            this.replacements = replacements;
         }
     }
 }
