@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 
 /**
  * 评估服务类，用于处理文本评估请求，调用AI服务并保存评估记录
@@ -64,7 +65,7 @@ public class EvalService {
         // 步骤4: 入库 (映射 DTO -> Entity)
         AssessmentRecord record = new AssessmentRecord();
         record.setUserId(1L); // 暂时硬编码
-        record.setTranscribedText(req.getUserText());
+        record.setTranscribedText(req.getUserText()); // 设置ASR识别的文本
         record.setScoreFluency(BigDecimal.valueOf(resp.getFluency()));
         record.setScoreIntegrity(BigDecimal.valueOf(resp.getCompleteness()));
         // 总分简单取平均
@@ -76,7 +77,7 @@ public class EvalService {
 
         // 步骤5: 补充返回字段 (ID 和 时间)
         resp.setRecordId(record.getRecordId());
-        resp.setCreatedAt(record.getCreatedAt());
+        resp.setCreatedAt(Instant.now().toString()); // ISO 8601格式
 
         return resp;
     }
