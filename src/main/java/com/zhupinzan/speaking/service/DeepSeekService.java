@@ -12,20 +12,28 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * DeepSeek服务类，用于调用DeepSeek AI API进行文本评估和对话
+ */
 @Service
 public class DeepSeekService {
 
+    /** DeepSeek API密钥，从配置文件注入 */
     @Value("${deepseek.api.key}")
     private String apiKey;
 
+    /** DeepSeek API URL，从配置文件注入 */
     @Value("${deepseek.api.url}")
     private String apiUrl;
 
+    /** DeepSeek模型名称，从配置文件注入 */
     @Value("${deepseek.api.model}")
     private String model;
 
+    /** HTTP客户端，用于发送API请求 */
     private final OkHttpClient client;
 
+    /** 构造函数，初始化HTTP客户端，设置超时时间 */
     public DeepSeekService() {
         // AI 响应较慢，设置 60 秒超时，防止报 Timeout 错误
         this.client = new OkHttpClient.Builder()
@@ -35,6 +43,13 @@ public class DeepSeekService {
                 .build();
     }
 
+    /**
+     * 评估文本方法，调用DeepSeek API对用户输入的文本进行评估
+     * @param text 用户输入的文本
+     * @param scenarioName 场景名称
+     * @return 评估结果对象
+     * @throws IOException 如果API调用失败
+     */
     public AssessmentResult evaluateText(String text, String scenarioName) throws IOException {
         // 为了兼容旧代码，调用chat方法
         String systemPrompt = "评估文本：" + text + " 场景：" + scenarioName;
@@ -54,7 +69,7 @@ public class DeepSeekService {
      * @return AI 返回的 JSON 字符串内容
      */
     public String chat(String systemPrompt, String userPrompt) throws IOException {
-        // 1. 构建请求体
+        // 步骤1: 构建请求体
         JSONObject payload = new JSONObject();
         payload.put("model", model);
         payload.put("temperature", 1.0); // 1.0 适合创意和生成，0.0 适合逻辑。口语评分建议 1.0 左右
@@ -68,7 +83,7 @@ public class DeepSeekService {
         messages.add(new JSONObject().fluentPut("role", "user").fluentPut("content", userPrompt));
         payload.put("messages", messages);
 
-        // 2. 构建 HTTP 请求
+        // 步骤2: 构建 HTTP 请求
         RequestBody body = RequestBody.create(payload.toString(), MediaType.get("application/json; charset=utf-8"));
         Request request = new Request.Builder()
                 .url(apiUrl)
@@ -77,14 +92,14 @@ public class DeepSeekService {
                 .post(body)
                 .build();
 
-        // 3. 执行请求
+        // 步骤3: 执行请求
         try (Response response = client.newCall(request).execute()) {
             if (!response.isSuccessful()) {
                 String errorBody = response.body() != null ? response.body().string() : "Unknown Error";
                 throw new IOException("DeepSeek API 请求失败: " + response.code() + " - " + errorBody);
             }
 
-            // 4. 解析响应
+            // 步骤4: 解析响应
             String responseBody = response.body().string();
             JSONObject jsonResponse = JSON.parseObject(responseBody);
 

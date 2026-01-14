@@ -9,16 +9,27 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 
+/**
+ * 评估服务类，用于处理文本评估请求，调用AI服务并保存评估记录
+ */
 @Service
 @RequiredArgsConstructor
 public class EvalService {
 
+    /** DeepSeek服务，用于调用AI评估 */
     private final DeepSeekService deepSeekService;
+    /** 评估记录仓库，用于数据库操作 */
     private final AssessmentRecordRepository recordRepository;
 
+    /**
+     * 评估方法，处理文本评估请求
+     * @param req 评估请求DTO
+     * @return 评估响应DTO
+     * @throws Exception 如果评估失败
+     */
     public EvalDTO.TextEvalResp evaluate(EvalDTO.TextEvalReq req) throws Exception {
         
-        // 1. 构建 System Prompt (契约的核心)
+        // 步骤1: 构建 System Prompt (契约的核心)
         // 这里的 JSON 示例必须和 iOS 前端的结构 1:1 对应
         String systemPrompt = """
             你是一位专业的雅思口语考官。请根据【题目】评估用户的【回答】。
@@ -41,16 +52,16 @@ public class EvalService {
 
         String userPrompt = String.format("【题目】%s\n【回答】%s", req.getPrompt(), req.getUserText());
 
-        // 2. 调用 DeepSeek (假设 deepSeekService.chat 返回纯字符串)
+        // 步骤2: 调用 DeepSeek (假设 deepSeekService.chat 返回纯字符串)
         String jsonStr = deepSeekService.chat(systemPrompt, userPrompt);
         
         // 清洗数据：防止 AI 偶尔带上 Markdown 标记
         jsonStr = jsonStr.replace("```json", "").replace("```", "").trim();
 
-        // 3. 解析为 DTO
+        // 步骤3: 解析为 DTO
         EvalDTO.TextEvalResp resp = JSON.parseObject(jsonStr, EvalDTO.TextEvalResp.class);
 
-        // 4. 入库 (映射 DTO -> Entity)
+        // 步骤4: 入库 (映射 DTO -> Entity)
         AssessmentRecord record = new AssessmentRecord();
         record.setUserId(1L); // 暂时硬编码
         record.setTranscribedText(req.getUserText());
@@ -63,7 +74,7 @@ public class EvalService {
         
         record = recordRepository.save(record);
 
-        // 5. 补充返回字段 (ID 和 时间)
+        // 步骤5: 补充返回字段 (ID 和 时间)
         resp.setRecordId(record.getRecordId());
         resp.setCreatedAt(record.getCreatedAt());
 
