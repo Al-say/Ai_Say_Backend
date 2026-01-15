@@ -4,23 +4,24 @@ import com.alibaba.fastjson2.JSONObject;
 import okhttp3.*;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import jakarta.annotation.PostConstruct;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.Base64;
 import java.util.concurrent.TimeUnit;
 
+import com.zhupinzan.speaking.config.BaiduConfig;
+import lombok.RequiredArgsConstructor;
+
 /**
  * 百度 ASR 服务，使用 REST API 调用方式
  */
 @Service
+@RequiredArgsConstructor
 public class BaiduAsrService {
 
-    @Value("${baidu.api-key}")
-    private String apiKey;
-
-    @Value("${baidu.secret-key}")
-    private String secretKey;
+    private final BaiduConfig baiduConfig;
 
     private final OkHttpClient httpClient = new OkHttpClient.Builder()
             .readTimeout(300, TimeUnit.SECONDS)
@@ -28,6 +29,23 @@ public class BaiduAsrService {
 
     private String accessToken;
     private long tokenExpiryTime;
+
+    @PostConstruct
+    public void testEnvVars() {
+        System.out.println("================ 环境变量检查 ================");
+        if (baiduConfig.getApiKey() != null && baiduConfig.getApiKey().length() > 4) {
+            System.out.println("✅ BAIDU API Key 已加载: " + baiduConfig.getApiKey().substring(0, 4) + "******");
+        } else {
+            System.err.println("❌ BAIDU API Key 未加载 (为 null 或为空)");
+        }
+
+        if (baiduConfig.getSecretKey() != null && baiduConfig.getSecretKey().length() > 4) {
+            System.out.println("✅ BAIDU Secret Key 已加载: " + baiduConfig.getSecretKey().substring(0, 4) + "******");
+        } else {
+            System.err.println("❌ BAIDU Secret Key 未加载 (为 null 或为空)");
+        }
+        System.out.println("============================================");
+    }
 
     /**
      * 获取 Access Token
@@ -40,7 +58,7 @@ public class BaiduAsrService {
 
         MediaType mediaType = MediaType.parse("application/x-www-form-urlencoded");
         RequestBody body = RequestBody.create(mediaType,
-            "grant_type=client_credentials&client_id=" + apiKey + "&client_secret=" + secretKey);
+            "grant_type=client_credentials&client_id=" + baiduConfig.getApiKey() + "&client_secret=" + baiduConfig.getSecretKey());
 
         Request request = new Request.Builder()
                 .url("https://aip.baidubce.com/oauth/2.0/token")
@@ -49,11 +67,20 @@ public class BaiduAsrService {
                 .build();
 
         System.out.println("🔑 正在获取百度Access Token...");
-        System.out.println("🔑 API Key: " + apiKey.substring(0, 10) + "...");
-        System.out.println("🔑 Secret Key: " + secretKey.substring(0, 10) + "...");
+        if (baiduConfig.getApiKey() != null && baiduConfig.getApiKey().length() > 10) {
+            System.out.println("🔑 API Key: " + baiduConfig.getApiKey().substring(0, 10) + "...");
+        } else {
+            System.out.println("🔑 API Key: " + (baiduConfig.getApiKey() == null ? "null" : baiduConfig.getApiKey()));
+        }
+        if (baiduConfig.getSecretKey() != null && baiduConfig.getSecretKey().length() > 10) {
+            System.out.println("🔑 Secret Key: " + baiduConfig.getSecretKey().substring(0, 10) + "...");
+        } else {
+            System.out.println("🔑 Secret Key: " + (baiduConfig.getSecretKey() == null ? "null" : baiduConfig.getSecretKey()));
+        }
 
         try (Response response = httpClient.newCall(request).execute()) {
-            String responseBody = response.body().string();
+            okhttp3.ResponseBody respBody = response.body();
+            String responseBody = respBody != null ? respBody.string() : "";
             System.out.println("🔑 Token响应码: " + response.code());
             System.out.println("🔑 Token响应内容: " + responseBody);
 
@@ -72,7 +99,11 @@ public class BaiduAsrService {
                 throw new IOException("Token error: " + error + " - " + errorDesc);
             }
 
-            accessToken = jsonResponse.getString("access_token");
+            String token = jsonResponse.getString("access_token");
+            if (token == null || token.isEmpty()) {
+                throw new IOException("获取到的 access_token 为空，响应: " + responseBody);
+            }
+            accessToken = token;
             // token有效期30天，这里设置为25天后过期
             tokenExpiryTime = System.currentTimeMillis() + (25 * 24 * 60 * 60 * 1000L);
 
