@@ -12,6 +12,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.Map;
 
 /**
@@ -32,7 +33,7 @@ public class TopicGeneratorTask {
      */
     @Scheduled(cron = "0 0 2 * * ?")
     public void cleanupOldTopics() {
-        LocalDate cutoffDate = LocalDate.now().minusDays(7);
+        LocalDate cutoffDate = LocalDate.now(ZoneOffset.UTC).minusDays(7);
 
         log.info("开始清理{}之前的旧题目", cutoffDate);
 
@@ -49,7 +50,7 @@ public class TopicGeneratorTask {
      */
     @Scheduled(cron = "0 0 3 * * ?")
     public void generateTopicsForTomorrow() {
-        LocalDate tomorrow = LocalDate.now().plusDays(1);
+        LocalDate tomorrow = LocalDate.now(ZoneOffset.UTC).plusDays(1);
 
         log.info("开始预生成{}的题目", tomorrow);
 
@@ -137,26 +138,26 @@ public class TopicGeneratorTask {
     private String buildSystemPrompt(UserPersona persona) {
         return switch (persona) {
             case EXAM_PREP -> """
-                You are a professional IELTS Speaking examiner.
-                Generate one speaking topic suitable for IELTS preparation.
-                Focus on academic vocabulary and formal expressions.
-                Return ONLY JSON format:
-                {
-                    "title": "topic title",
-                    "description": "detailed description with instructions"
-                }
-                """;
+                    You are a professional IELTS Speaking examiner.
+                    Generate one speaking topic suitable for IELTS preparation.
+                    Focus on academic vocabulary and formal expressions.
+                    Return ONLY JSON format:
+                    {
+                        "title": "topic title",
+                        "description": "detailed description with instructions"
+                    }
+                    """;
 
             case CAREER_GROWTH -> """
-                You are a business communication coach.
-                Generate one speaking topic suitable for workplace communication.
-                Focus on professional language and practical scenarios.
-                Return ONLY JSON format:
-                {
-                    "title": "topic title",
-                    "description": "detailed description with instructions"
-                }
-                """;
+                    You are a business communication coach.
+                    Generate one speaking topic suitable for workplace communication.
+                    Focus on professional language and practical scenarios.
+                    Return ONLY JSON format:
+                    {
+                        "title": "topic title",
+                        "description": "detailed description with instructions"
+                    }
+                    """;
         };
     }
 
@@ -191,7 +192,8 @@ public class TopicGeneratorTask {
     private TopicGenerationResponse getFallbackTopic() {
         TopicGenerationResponse fallback = new TopicGenerationResponse();
         fallback.setTitle("Describe Your Favorite Hobby");
-        fallback.setDescription("Talk about a hobby you enjoy. You should say: what the hobby is, how you started it, and why you like it. Describe it in detail for 1-2 minutes.");
+        fallback.setDescription(
+                "Talk about a hobby you enjoy. You should say: what the hobby is, how you started it, and why you like it. Describe it in detail for 1-2 minutes.");
         return fallback;
     }
 
@@ -202,9 +204,20 @@ public class TopicGeneratorTask {
         private String title;
         private String description;
 
-        public String getTitle() { return title; }
-        public void setTitle(String title) { this.title = title; }
-        public String getDescription() { return description; }
-        public void setDescription(String description) { this.description = description; }
+        public String getTitle() {
+            return title;
+        }
+
+        public void setTitle(String title) {
+            this.title = title;
+        }
+
+        public String getDescription() {
+            return description;
+        }
+
+        public void setDescription(String description) {
+            this.description = description;
+        }
     }
 }

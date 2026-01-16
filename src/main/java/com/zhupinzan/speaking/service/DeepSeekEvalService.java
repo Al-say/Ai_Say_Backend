@@ -112,22 +112,20 @@ public class DeepSeekEvalService {
     }
 
     private String extractFirstJsonObject(String text) {
-        int start = text.indexOf('{');
-        if (start < 0)
-            return text;
+        if (text == null || text.isBlank())
+            return "{}";
 
-        int depth = 0;
-        for (int i = start; i < text.length(); i++) {
-            char c = text.charAt(i);
-            if (c == '{')
-                depth++;
-            else if (c == '}') {
-                depth--;
-                if (depth == 0)
-                    return text.substring(start, i + 1);
-            }
+        // 1. 移除常见的 Markdown 标识符
+        String processed = text.replaceAll("```json", "").replaceAll("```", "").trim();
+
+        // 2. 查找第一个 { 和最后一个 }
+        int start = processed.indexOf('{');
+        int end = processed.lastIndexOf('}');
+
+        if (start != -1 && end != -1 && start < end) {
+            return processed.substring(start, end + 1);
         }
-        return text.substring(start);
+        return processed;
     }
 
     private String safeTrim(String s) {

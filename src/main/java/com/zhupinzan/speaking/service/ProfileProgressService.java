@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 
 /**
  * 用户进度服务 - 负责更新用户练习进度和连续打卡
@@ -28,7 +29,7 @@ public class ProfileProgressService {
     public void onPracticeCompleted(String deviceId, long durationMs) {
         log.info("📊 更新用户进度 - 设备: {}, 时长: {}ms", deviceId, durationMs);
 
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(ZoneOffset.UTC);
         var current = userProgressRepository.findByDeviceId(deviceId).orElse(null);
 
         int newStreak;

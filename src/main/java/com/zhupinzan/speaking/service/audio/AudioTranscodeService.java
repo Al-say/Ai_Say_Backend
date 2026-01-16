@@ -23,8 +23,7 @@ public class AudioTranscodeService {
             @Value("${ffmpeg.path}") String ffmpegPath,
             @Value("${audio.temp-dir}") String tempDir,
             @Value("${audio.target.sample-rate:16000}") int sampleRate,
-            @Value("${audio.target.channels:1}") int channels
-    ) {
+            @Value("${audio.target.channels:1}") int channels) {
         this.ffmpegPath = ffmpegPath;
         this.tempDir = Paths.get(tempDir);
         this.sampleRate = sampleRate;
@@ -35,36 +34,41 @@ public class AudioTranscodeService {
      * 转码为 WAV(PCM_s16le) + 16kHz + mono
      */
     public TranscodedAudio transcodeToWav16kMono(byte[] inputBytes, String inputExt) {
+        Path in = null;
+        Path out = null;
         try {
             Files.createDirectories(tempDir);
 
-            Path in = Files.createTempFile(tempDir, "in_", inputExt == null ? ".bin" : inputExt);
-            Path out = Files.createTempFile(tempDir, "out_", ".wav");
+            in = Files.createTempFile(tempDir, "in_", inputExt == null ? ".bin" : inputExt);
+            out = Files.createTempFile(tempDir, "out_", ".wav");
             Files.write(in, inputBytes, StandardOpenOption.TRUNCATE_EXISTING);
 
             List<String> cmd = new ArrayList<>();
             cmd.add(ffmpegPath);
             cmd.add("-y");
             cmd.add("-hide_banner");
-            cmd.add("-loglevel"); cmd.add("error");
-            cmd.add("-i"); cmd.add(in.toAbsolutePath().toString());
+            cmd.add("-loglevel");
+            cmd.add("error");
+            cmd.add("-i");
+            cmd.add(in.toAbsolutePath().toString());
             // 目标格式：16k mono PCM 16-bit
-            cmd.add("-ac"); cmd.add(String.valueOf(channels));
-            cmd.add("-ar"); cmd.add(String.valueOf(sampleRate));
-            cmd.add("-c:a"); cmd.add("pcm_s16le");
+            cmd.add("-ac");
+            cmd.add(String.valueOf(channels));
+            cmd.add("-ar");
+            cmd.add(String.valueOf(sampleRate));
+            cmd.add("-c:a");
+            cmd.add("pcm_s16le");
             cmd.add(out.toAbsolutePath().toString());
 
             runProcess(cmd, Duration.ofSeconds(20));
 
-            byte[] wav = Files.readAllBytes(out);
-
-            // 清理
-            safeDelete(in);
-            safeDelete(out);
-
-            return new TranscodedAudio(wav, "audio/wav", ".wav");
+            return new TranscodedAudio(Files.readAllBytes(out), "audio/wav", ".wav");
         } catch (Exception e) {
             throw new AudioTranscodeException("FFmpeg transcode failed", e);
+        } finally {
+            // ✅ 确保在任何异常情况下都尝试删除临时文件
+            safeDelete(in);
+            safeDelete(out);
         }
     }
 
@@ -90,13 +94,22 @@ public class AudioTranscodeService {
     }
 
     private void safeDelete(Path p) {
-        try { Files.deleteIfExists(p); } catch (Exception ignored) {}
+        try {
+            Files.deleteIfExists(p);
+        } catch (Exception ignored) {
+        }
     }
 
-    public record TranscodedAudio(byte[] bytes, String contentType, String extension) {}
+    public record TranscodedAudio(byte[] bytes, String contentType, String extension) {
+    }
 
     public static class AudioTranscodeException extends RuntimeException {
-        public AudioTranscodeException(String msg) { super(msg); }
-        public AudioTranscodeException(String msg, Throwable t) { super(msg, t); }
+        public AudioTranscodeException(String msg) {
+            super(msg);
+        }
+
+        public AudioTranscodeException(String msg, Throwable t) {
+            super(msg, t);
+        }
     }
 }
