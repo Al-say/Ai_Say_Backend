@@ -30,7 +30,7 @@ class TopicGeneratorTaskTest {
         topic.setTitle("Test Topic");
         topic.setDescription("Test Description");
         topic.setTargetPersona(UserPersona.EXAM_PREP);
-        topic.setForDate(today);
+        topic.setTopicDate(today);
         topic.setAiSuggestions("{\"title\":\"Test\",\"description\":\"Test\"}");
 
         // When
@@ -42,7 +42,7 @@ class TopicGeneratorTaskTest {
         assertThat(saved.getTargetPersona()).isEqualTo(UserPersona.EXAM_PREP);
 
         // When - retrieve
-        Optional<DailyTopic> retrieved = topicRepository.findByTargetPersonaAndForDate(UserPersona.EXAM_PREP, today);
+        Optional<DailyTopic> retrieved = topicRepository.findByTargetPersonaAndTopicDate(UserPersona.EXAM_PREP, today);
 
         // Then
         assertThat(retrieved).isPresent();
@@ -57,16 +57,16 @@ class TopicGeneratorTaskTest {
         oldTopic.setTitle("Old Topic");
         oldTopic.setDescription("Old Description");
         oldTopic.setTargetPersona(UserPersona.EXAM_PREP);
-        oldTopic.setForDate(oldDate);
+        oldTopic.setTopicDate(oldDate);
         oldTopic.setAiSuggestions("old");
         topicRepository.save(oldTopic);
 
         // When
-        long deletedCount = topicRepository.deleteByForDateBefore(LocalDate.now().minusDays(7));
+        long deletedCount = topicRepository.deleteByTopicDateBefore(LocalDate.now().minusDays(7));
 
         // Then
         assertThat(deletedCount).isEqualTo(1);
-        Optional<DailyTopic> shouldBeDeleted = topicRepository.findByTargetPersonaAndForDate(UserPersona.EXAM_PREP, oldDate);
+        Optional<DailyTopic> shouldBeDeleted = topicRepository.findByTargetPersonaAndTopicDate(UserPersona.EXAM_PREP, oldDate);
         assertThat(shouldBeDeleted).isEmpty();
     }
 }

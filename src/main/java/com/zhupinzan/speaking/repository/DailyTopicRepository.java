@@ -23,14 +23,14 @@ public interface DailyTopicRepository extends JpaRepository<DailyTopic, Long> {
      * @param date 日期
      * @return 题目（如果存在）
      */
-    Optional<DailyTopic> findByTargetPersonaAndForDate(UserPersona persona, LocalDate date);
+    Optional<DailyTopic> findByTargetPersonaAndTopicDate(UserPersona persona, LocalDate date);
 
     /**
      * 删除指定日期之前的所有题目（清理历史数据）
      * @param date 截止日期
      * @return 删除的记录数
      */
-    long deleteByForDateBefore(LocalDate date);
+    long deleteByTopicDateBefore(LocalDate date);
 
     // 新增方法
     Optional<DailyTopic> findByTopicDateAndPersona(LocalDate topicDate, String persona);

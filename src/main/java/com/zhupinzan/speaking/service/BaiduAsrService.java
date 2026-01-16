@@ -174,4 +174,18 @@ public class BaiduAsrService {
             }
         }
     }
+
+    /**
+     * 从 WAV 字节数组进行语音识别
+     */
+    public String recognizeFromWavBytes(byte[] wavBytes) throws IOException {
+        // 创建临时文件
+        File tempFile = File.createTempFile("asr_temp", ".wav");
+        try {
+            java.nio.file.Files.write(tempFile.toPath(), wavBytes);
+            return speechToText(tempFile);
+        } finally {
+            tempFile.delete();
+        }
+    }
 }

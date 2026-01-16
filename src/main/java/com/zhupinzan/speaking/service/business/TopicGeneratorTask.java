@@ -37,7 +37,7 @@ public class TopicGeneratorTask {
         log.info("开始清理{}之前的旧题目", cutoffDate);
 
         try {
-            long deletedCount = topicRepository.deleteByForDateBefore(cutoffDate);
+            long deletedCount = topicRepository.deleteByTopicDateBefore(cutoffDate);
             log.info("✅ 成功清理{}条旧题目", deletedCount);
         } catch (Exception e) {
             log.error("清理旧题目失败: {}", e.getMessage(), e);

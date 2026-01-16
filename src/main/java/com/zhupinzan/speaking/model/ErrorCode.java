@@ -11,7 +11,9 @@ public enum ErrorCode {
     VALIDATION_ERROR("数据校验失败"),
     CONFLICT("数据冲突/重复"),
     INTERNAL_ERROR("服务器内部错误"),
-    AI_SERVICE_ERROR("AI 服务调用失败"); // 针对 DeepSeek 场景预留
+    AI_SERVICE_ERROR("AI 服务调用失败"), // 针对 DeepSeek 场景预留
+    STORAGE_ERROR("文件存储服务不可用"),
+    AUDIO_TRANSCODE_ERROR("音频转码失败");
 
     private final String description;
 

@@ -23,6 +23,7 @@ public class EvalServiceTest {
 
         // 1. 模拟前端传来的请求数据
         EvalDTO.TextEvalReq req = new EvalDTO.TextEvalReq();
+        req.setDeviceId("test-device-001");
         req.setPrompt("Please describe your favorite food.");
         // 故意写一句带点小错误的英语，测试 AI 纠错能力
         req.setUserText("My favorite food is noodle. I eat it yesterday very happy.");
@@ -42,14 +43,14 @@ public class EvalServiceTest {
             System.out.println("📊 评分 - 完整度: " + resp.getCompleteness());
             System.out.println("📊 评分 - 相关性: " + resp.getRelevance());
             System.out.println("🚩 发现语法问题数: " + (resp.getIssues() != null ? resp.getIssues().size() : 0));
-            
+
             if (resp.getIssues() != null) {
                 resp.getIssues().forEach(issue -> {
                     System.out.println("   ❌ 错误点: " + issue.getMessage());
                     System.out.println("   💡 建议修改: " + issue.getReplacements());
                 });
             }
-            
+
             System.out.println("💬 AI 总体建议: " + resp.getSuggestions());
             System.out.println("--------------------------------------------------");
 
@@ -59,7 +60,8 @@ public class EvalServiceTest {
                 throw new RuntimeException("❌ 测试失败：RecordId 为空，数据库存储可能失败");
             }
             // 确保分数在合法区间
-            if (resp.getFluency() == null || resp.getFluency().doubleValue() < 0 || resp.getFluency().doubleValue() > 100) {
+            if (resp.getFluency() == null || resp.getFluency().doubleValue() < 0
+                    || resp.getFluency().doubleValue() > 100) {
                 throw new RuntimeException("❌ 测试失败：分数超出范围");
             }
 

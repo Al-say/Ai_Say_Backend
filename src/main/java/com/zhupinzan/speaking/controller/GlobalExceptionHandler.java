@@ -39,6 +39,21 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, ErrorCode.INTERNAL_ERROR, "Internal Server Error", req);
     }
 
+    // 处理存储服务异常
+    @ExceptionHandler(software.amazon.awssdk.core.exception.SdkException.class)
+    public ResponseEntity<ApiErrorResponse> handleStorageError(Exception e, HttpServletRequest req) {
+        log.error("Storage Service Error: ", e);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ApiErrorResponse.of(ErrorCode.STORAGE_ERROR, "文件存储服务暂时不可用", getRequestId(), req.getRequestURI()));
+    }
+
+    // 处理音频转码异常
+    @ExceptionHandler(com.zhupinzan.speaking.service.audio.AudioTranscodeService.AudioTranscodeException.class)
+    public ResponseEntity<ApiErrorResponse> handleTranscode(Exception e, HttpServletRequest req) {
+        log.error("[{}] Audio transcode failed", getRequestId(), e);
+        return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, ErrorCode.AUDIO_TRANSCODE_ERROR, "音频转码失败", req);
+    }
+
     private ResponseEntity<ApiErrorResponse> buildResponse(HttpStatus status, ErrorCode code, String msg, HttpServletRequest req) {
         return ResponseEntity.status(status)
                 .body(ApiErrorResponse.of(code, msg, getRequestId(), req.getRequestURI()));

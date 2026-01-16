@@ -7,41 +7,41 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.UUID;
 
 @Service
 public class ObjectStorageService {
 
-    private final S3Client s3;
+    private final S3Client s3Client;
     private final String bucket;
     private final String publicBaseUrl;
 
-    public ObjectStorageService(S3Client s3,
+    public ObjectStorageService(S3Client s3Client,
                                 @Value("${storage.bucket}") String bucket,
                                 @Value("${storage.public-base-url}") String publicBaseUrl) {
-        this.s3 = s3;
+        this.s3Client = s3Client;
         this.bucket = bucket;
         this.publicBaseUrl = publicBaseUrl;
     }
 
-    public UploadedObject upload(byte[] bytes, String contentType, String deviceId, String ext) {
-        String date = LocalDate.now().format(DateTimeFormatter.ISO_DATE);
-        String key = "audio/" + date + "/" + deviceId + "/" + UUID.randomUUID() + ext;
+    /**
+     * 上传字节数组
+     * @return 返回可供前端访问的完整 URL
+     */
+    public String uploadAudio(byte[] data, String deviceId, String extension) {
+        // 生成规范路径: audio/2026-01-16/device_uuid/file_uuid.m4a
+        String key = String.format("audio/%s/%s/%s%s",
+                LocalDate.now(), deviceId, UUID.randomUUID(), extension);
 
-        var req = PutObjectRequest.builder()
+        PutObjectRequest request = PutObjectRequest.builder()
                 .bucket(bucket)
                 .key(key)
-                .contentType(contentType)
+                .contentType("audio/wav") // 转码后固定为wav
                 .build();
 
-        s3.putObject(req, RequestBody.fromBytes(bytes));
+        s3Client.putObject(request, RequestBody.fromBytes(data));
 
-        // 开发阶段：直接拼 public URL
-        String url = publicBaseUrl.endsWith("/") ? publicBaseUrl + key : publicBaseUrl + "/" + key;
-
-        return new UploadedObject(bucket, key, url);
+        // 拼接公网访问地址
+        return publicBaseUrl.endsWith("/") ? publicBaseUrl + key : publicBaseUrl + "/" + key;
     }
-
-    public record UploadedObject(String bucket, String key, String url) {}
 }

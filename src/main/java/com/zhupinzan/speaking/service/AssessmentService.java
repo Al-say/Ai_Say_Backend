@@ -5,7 +5,6 @@ import com.zhupinzan.speaking.model.UserPersona;
 import com.zhupinzan.speaking.model.dto.EvalDTO;
 import com.zhupinzan.speaking.model.entity.AssessmentRecord;
 import com.zhupinzan.speaking.repository.AssessmentRecordRepository;
-import com.zhupinzan.speaking.service.business.ProfileProgressService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -25,17 +24,18 @@ public class AssessmentService {
 
     /**
      * 保存评估尝试记录
+     * 
      * @param deviceId 设备ID
-     * @param persona 用户画像
-     * @param prompt 提示词
+     * @param persona  用户画像
+     * @param prompt   提示词
      * @param userText 用户文本
      * @param audioUrl 音频URL
-     * @param result 评估结果
-     * @param mode 评估模式 (如果为null则自动推断)
+     * @param result   评估结果
+     * @param mode     评估模式 (如果为null则自动推断)
      * @return 保存的记录
      */
     public AssessmentRecord saveAttempt(String deviceId, UserPersona persona, String prompt,
-                                      String userText, String audioUrl, EvalDTO.TextEvalResp result, AssessmentMode mode) {
+            String userText, String audioUrl, EvalDTO.TextEvalResp result, AssessmentMode mode) {
 
         AssessmentRecord record = new AssessmentRecord();
         record.setDeviceId(deviceId);
@@ -65,13 +65,12 @@ public class AssessmentService {
 
         if (result.getIssues() != null) {
             List<Map<String, Object>> issuesMaps = result.getIssues().stream()
-                .map(issue -> Map.of(
-                    "offset", issue.getOffset(),
-                    "length", issue.getLength(),
-                    "message", issue.getMessage(),
-                    "replacements", issue.getReplacements()
-                ))
-                .collect(java.util.stream.Collectors.toList());
+                    .map(issue -> Map.of(
+                            "offset", issue.getOffset(),
+                            "length", issue.getLength(),
+                            "message", issue.getMessage(),
+                            "replacements", issue.getReplacements()))
+                    .collect(java.util.stream.Collectors.toList());
             record.getFeedback().put("issues", issuesMaps);
         }
 
@@ -94,8 +93,9 @@ public class AssessmentService {
 
     /**
      * 获取某设备的评估历史记录
+     * 
      * @param deviceId 设备ID
-     * @param persona 用户画像
+     * @param persona  用户画像
      * @return 历史记录列表
      */
     public List<AssessmentRecord> getHistory(String deviceId, UserPersona persona) {
@@ -104,6 +104,7 @@ public class AssessmentService {
 
     /**
      * 获取某设备的所有评估记录
+     * 
      * @param deviceId 设备ID
      * @return 所有记录列表
      */
