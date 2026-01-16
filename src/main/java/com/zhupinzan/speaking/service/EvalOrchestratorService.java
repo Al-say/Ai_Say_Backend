@@ -85,7 +85,22 @@ public class EvalOrchestratorService {
 
         // 映射评分指标
         record.setOverallScore(evalResult.overallScore() != null ? evalResult.overallScore().doubleValue() : 0.0);
+
+        // 🔧 修复：保存子维度分数
+        var metrics = evalResult.metrics();
+        record.setFluency(metrics != null ? metrics.getOrDefault("fluency", 0).doubleValue() : 0.0);
+        record.setCompleteness(metrics != null ? metrics.getOrDefault("completeness", 0).doubleValue() : 0.0);
+        record.setRelevance(metrics != null ? metrics.getOrDefault("relevance", 0).doubleValue() : 0.0);
+
+        // 保存 feedback 和 metrics 到 JSONB 字段
         record.setFeedback(java.util.Map.of("summary", evalResult.feedback().summary()));
+        record.setMetrics(java.util.Map.of(
+                "fluency", metrics != null ? metrics.getOrDefault("fluency", 0) : 0,
+                "completeness", metrics != null ? metrics.getOrDefault("completeness", 0) : 0,
+                "relevance", metrics != null ? metrics.getOrDefault("relevance", 0) : 0,
+                "pronunciation", metrics != null ? metrics.getOrDefault("pronunciation", 0) : 0,
+                "grammar", metrics != null ? metrics.getOrDefault("grammar", 0) : 0,
+                "vocabulary", metrics != null ? metrics.getOrDefault("vocabulary", 0) : 0));
 
         recordRepo.save(record);
 
