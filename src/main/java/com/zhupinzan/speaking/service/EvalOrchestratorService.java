@@ -102,7 +102,8 @@ public class EvalOrchestratorService {
                 evalResult.metrics().getOrDefault("fluency", evalResult.overallScore()), // fluency
                 evalResult.metrics().getOrDefault("completeness", evalResult.overallScore()), // completeness
                 evalResult.metrics().getOrDefault("relevance", evalResult.overallScore()), // relevance
-                evalResult.feedback().summary() // 改为字符串
+                evalResult.feedback().summary(), // feedback text
+                evalResult.feedback().suggestions() // suggestions list
         );
     }
 
