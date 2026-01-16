@@ -1,66 +1,101 @@
 package com.zhupinzan.speaking.service;
 
-import com.alibaba.fastjson2.JSON;
-import com.zhupinzan.speaking.model.AssessmentResult; // 之前定义的 AI 返回结果类
+import com.zhupinzan.speaking.model.AssessmentMode;
+import com.zhupinzan.speaking.model.UserPersona;
+import com.zhupinzan.speaking.model.dto.EvalDTO;
 import com.zhupinzan.speaking.model.entity.AssessmentRecord;
 import com.zhupinzan.speaking.repository.AssessmentRecordRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
-import java.io.IOException;
+import java.util.List;
+import java.util.Map;
 
 /**
- * 评估服务类，负责处理口语评估的业务逻辑，包括调用AI服务和保存评估记录
+ * 评估数据服务类，负责保存和查询评估记录
+ * 支持Growth模块的数据统计需求
  */
 @Service
+@RequiredArgsConstructor
 public class AssessmentService {
 
-    /** DeepSeek服务，用于调用AI评估 */
-    private final DeepSeekService deepSeekService;
-    /** 评估记录仓库，用于数据库操作 */
-    private final AssessmentRecordRepository recordRepository;
+    private final AssessmentRecordRepository repository;
 
-    /** 构造函数，注入依赖 */
-    public AssessmentService(DeepSeekService deepSeekService, AssessmentRecordRepository recordRepository) {
-        this.deepSeekService = deepSeekService;
-        this.recordRepository = recordRepository;
+    /**
+     * 保存评估尝试记录
+     * @param deviceId 设备ID
+     * @param persona 用户画像
+     * @param prompt 提示词
+     * @param userText 用户文本
+     * @param audioUrl 音频URL
+     * @param result 评估结果
+     * @param isAudio 是否为音频模式
+     * @return 保存的记录
+     */
+    public AssessmentRecord saveAttempt(String deviceId, UserPersona persona, String prompt,
+                                      String userText, String audioUrl, EvalDTO.TextEvalResp result, boolean isAudio) {
+
+        AssessmentRecord record = new AssessmentRecord();
+        record.setDeviceId(deviceId);
+        record.setPersona(persona);
+        record.setPrompt(prompt);
+        record.setTranscript(userText); // 改为transcript字段
+        record.setAudioUrl(audioUrl);
+        record.setMode(isAudio ? AssessmentMode.AUDIO : AssessmentMode.TEXT);
+        record.setScene("practice"); // 默认值，未来可从 Controller 传
+
+        // 分数落库 (扁平列)
+        record.setFluency(result.getFluency());
+        record.setCompleteness(result.getCompleteness());
+        record.setRelevance(result.getRelevance());
+        record.setOverallScore(result.getOverallScore());
+
+        // 反馈信息落库 (合并到feedback JSONB)
+        if (record.getFeedback() == null) {
+            record.setFeedback(new java.util.HashMap<>());
+        }
+
+        if (result.getIssues() != null) {
+            List<Map<String, Object>> issuesMaps = result.getIssues().stream()
+                .map(issue -> Map.of(
+                    "offset", issue.getOffset(),
+                    "length", issue.getLength(),
+                    "message", issue.getMessage(),
+                    "replacements", issue.getReplacements()
+                ))
+                .collect(java.util.stream.Collectors.toList());
+            record.getFeedback().put("issues", issuesMaps);
+        }
+
+        if (result.getSuggestions() != null) {
+            record.getFeedback().put("suggestions", result.getSuggestions());
+        }
+
+        AssessmentRecord saved = repository.save(record);
+
+        // 回填ID和时间给前端
+        result.setRecordId(saved.getId());
+        result.setCreatedAt(saved.getCreatedAt().toString());
+
+        return saved;
     }
 
     /**
-     * 处理文本评测请求
-     * @param userId 用户ID
-     * @param scenarioId 场景ID
-     * @param scenarioName 场景名称 (发给AI用)
-     * @param text 用户输入的文本
-     * @return 评测记录实体
+     * 获取某设备的评估历史记录
+     * @param deviceId 设备ID
+     * @param persona 用户画像
+     * @return 历史记录列表
      */
-    @Transactional
-    public AssessmentRecord evaluateText(Long userId, Long scenarioId, String scenarioName, String text) throws IOException {
-        
-        // 步骤1: 调用 DeepSeek 获取评分
-        AssessmentResult aiResult = deepSeekService.evaluateText(text, scenarioName);
+    public List<AssessmentRecord> getHistory(String deviceId, UserPersona persona) {
+        return repository.findByDeviceIdAndPersonaOrderByCreatedAtDesc(deviceId, persona);
+    }
 
-        // 步骤2: 将 AI 结果映射到数据库实体
-        AssessmentRecord record = new AssessmentRecord();
-        record.setUserId(userId);
-        record.setScenarioId(scenarioId);
-        record.setTranscribedText(text);
-        
-        // 设置分数 (注意 BigDecimal 转换)
-        record.setScoreTotal(aiResult.getTotalScore());
-        
-        // 如果维度不为空，设置各项评分
-        if (aiResult.getDimensions() != null) {
-            record.setScoreFluency(aiResult.getDimensions().getVocabulary()); // 词汇分
-            record.setScoreIntegrity(aiResult.getDimensions().getLogic());   // 逻辑分
-            record.setScorePronunciation(aiResult.getDimensions().getGrammar()); // 语法分
-        }
-
-        // 保存原始 AI JSON 数据，方便前端展示具体的“语法建议”和“润色文本”
-        record.setAiAnalysisRaw(JSON.toJSONString(aiResult));
-
-        // 步骤3: 存入数据库
-        return recordRepository.save(record);
+    /**
+     * 获取某设备的所有评估记录
+     * @param deviceId 设备ID
+     * @return 所有记录列表
+     */
+    public List<AssessmentRecord> getAllHistory(String deviceId) {
+        return repository.findByDeviceIdOrderByCreatedAtDesc(deviceId);
     }
 }

@@ -1,194 +1,90 @@
 package com.zhupinzan.speaking.model.entity;
 
+import com.zhupinzan.speaking.model.AssessmentMode;
+import com.zhupinzan.speaking.model.UserPersona;
 import jakarta.persistence.*;
-import org.hibernate.annotations.CreationTimestamp;
+import lombok.Data;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.util.HashMap;
+import java.util.Map;
 
-/**
- * 评估记录实体类，对应数据库表 assessment_records，用于存储用户口语评估的记录
- */
 @Entity
-@Table(name = "assessment_records")
+@Table(name = "assessment_record")
+@Data
 public class AssessmentRecord {
 
-    /** 记录ID，主键 */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "record_id")
-    private Long recordId;
+    private Long id;
 
-    /** 用户ID，暂时直接存ID，后续可关联 User 实体 */
-    @Column(name = "user_id")
-    private Long userId; // 暂时直接存ID，后续可关联 User 实体
+    @Column(name = "device_id", nullable = false, length = 64)
+    private String deviceId;
 
-    /** 场景ID，对应场景 ID */
-    @Column(name = "scenario_id")
-    private Long scenarioId; // 对应场景 ID
+    @Column(name = "created_at", nullable = false)
+    private OffsetDateTime createdAt;
 
-    // 音频相关 (如果是纯文本评测，这里可为空)
-    /** 音频文件URL */
-    @Column(name = "audio_file_url")
-    private String audioFileUrl;
+    @Column(name = "updated_at", nullable = false) // ✅ 补齐
+    private OffsetDateTime updatedAt;
 
-    /** 音频时长 */
-    @Column(name = "audio_duration")
-    private Integer audioDuration;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 16)
+    private AssessmentMode mode;
 
-    // --- 核心评分字段 ---
-    /** 总分 */
-    @Column(name = "score_total")
-    private BigDecimal scoreTotal;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 32)
+    private UserPersona persona;
 
-    /** 流畅度评分 */
-    @Column(name = "score_fluency")
-    private BigDecimal scoreFluency;
+    @Column(nullable = false, length = 32) // ✅ 补齐
+    private String scene = "practice";
 
-    /** 完整度/逻辑评分 */
-    @Column(name = "score_integrity")
-    private BigDecimal scoreIntegrity; // 完整度/逻辑分
+    @Column(columnDefinition = "TEXT")
+    private String prompt;
 
-    /** 发音评分，文本评测时该项可能为0或不适用 */
-    @Column(name = "score_pronunciation")
-    private BigDecimal scorePronunciation; // 文本评测时该项可能为0或不适用
+    @Column(name = "overall_score")
+    private Double overallScore;
 
-    // --- 文本内容 ---
-    /** 转录文本 */
-    @Column(name = "transcribed_text", columnDefinition = "TEXT")
-    private String transcribedText;
+    // 扁平列
+    private Double fluency;
+    private Double completeness;
+    private Double relevance;
 
-    // --- AI 原始分析数据 ---
-    // 为了简化开发，我们将 AI 返回的复杂 JSON 转为 String 存入数据库
-    // 这里的 columnDefinition = "jsonb" 依赖 PostgreSQL 方言，
-    // 如果嫌配置麻烦，可以直接用 "TEXT" 存储 JSON 字符串
-    /** AI原始分析数据，存储JSON字符串 */
-    @Column(name = "ai_analysis_raw", columnDefinition = "TEXT")
-    private String aiAnalysisRaw;
+    // JSONB
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "jsonb", nullable = false)
+    private Map<String, Object> metrics = new HashMap<>();
 
-    /** 创建时间 */
-    @CreationTimestamp
-    @Column(name = "created_at", updatable = false)
-    private LocalDateTime createdAt;
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "jsonb", nullable = false)
+    private Map<String, Object> feedback = new HashMap<>();
 
-    // Getters and Setters
-    /** 获取记录ID */
-    public Long getRecordId() {
-        return recordId;
+    @Column(name = "audio_url")
+    private String audioUrl;
+
+    @Column(columnDefinition = "TEXT")
+    private String transcript;
+
+    // ✅ 生命周期钩子：统一维护时间与数据一致性
+    @PrePersist
+    protected void onCreate() {
+        var now = OffsetDateTime.now();
+        if (createdAt == null) createdAt = now;
+        if (updatedAt == null) updatedAt = now;
+        syncCoreMetrics();
     }
 
-    /** 设置记录ID */
-    public void setRecordId(Long recordId) {
-        this.recordId = recordId;
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = OffsetDateTime.now(); // ✅ 应用层自动更新
+        syncCoreMetrics();
     }
 
-    /** 获取用户ID */
-    public Long getUserId() {
-        return userId;
-    }
-
-    /** 设置用户ID */
-    public void setUserId(Long userId) {
-        this.userId = userId;
-    }
-
-    /** 获取场景ID */
-    public Long getScenarioId() {
-        return scenarioId;
-    }
-
-    /** 设置场景ID */
-    public void setScenarioId(Long scenarioId) {
-        this.scenarioId = scenarioId;
-    }
-
-    /** 获取音频文件URL */
-    public String getAudioFileUrl() {
-        return audioFileUrl;
-    }
-
-    /** 设置音频文件URL */
-    public void setAudioFileUrl(String audioFileUrl) {
-        this.audioFileUrl = audioFileUrl;
-    }
-
-    /** 获取音频时长 */
-    public Integer getAudioDuration() {
-        return audioDuration;
-    }
-
-    /** 设置音频时长 */
-    public void setAudioDuration(Integer audioDuration) {
-        this.audioDuration = audioDuration;
-    }
-
-    /** 获取总分 */
-    public BigDecimal getScoreTotal() {
-        return scoreTotal;
-    }
-
-    /** 设置总分 */
-    public void setScoreTotal(BigDecimal scoreTotal) {
-        this.scoreTotal = scoreTotal;
-    }
-
-    /** 获取流畅度评分 */
-    public BigDecimal getScoreFluency() {
-        return scoreFluency;
-    }
-
-    /** 设置流畅度评分 */
-    public void setScoreFluency(BigDecimal scoreFluency) {
-        this.scoreFluency = scoreFluency;
-    }
-
-    /** 获取完整度评分 */
-    public BigDecimal getScoreIntegrity() {
-        return scoreIntegrity;
-    }
-
-    /** 设置完整度评分 */
-    public void setScoreIntegrity(BigDecimal scoreIntegrity) {
-        this.scoreIntegrity = scoreIntegrity;
-    }
-
-    /** 获取发音评分 */
-    public BigDecimal getScorePronunciation() {
-        return scorePronunciation;
-    }
-
-    /** 设置发音评分 */
-    public void setScorePronunciation(BigDecimal scorePronunciation) {
-        this.scorePronunciation = scorePronunciation;
-    }
-
-    /** 获取转录文本 */
-    public String getTranscribedText() {
-        return transcribedText;
-    }
-
-    /** 设置转录文本 */
-    public void setTranscribedText(String transcribedText) {
-        this.transcribedText = transcribedText;
-    }
-
-    /** 获取AI原始分析数据 */
-    public String getAiAnalysisRaw() {
-        return aiAnalysisRaw;
-    }
-
-    /** 设置AI原始分析数据 */
-    public void setAiAnalysisRaw(String aiAnalysisRaw) {
-        this.aiAnalysisRaw = aiAnalysisRaw;
-    }
-
-    /** 获取创建时间 */
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    /** 设置创建时间 */
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
+    private void syncCoreMetrics() {
+        if (metrics == null) metrics = new HashMap<>();
+        if (fluency != null) metrics.put("fluency", fluency);
+        if (completeness != null) metrics.put("completeness", completeness);
+        if (relevance != null) metrics.put("relevance", relevance);
     }
 }

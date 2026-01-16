@@ -3,13 +3,12 @@ package com.zhupinzan.speaking.service;
 import com.alibaba.fastjson2.JSON;
 import com.zhupinzan.speaking.model.UserPersona;
 import com.zhupinzan.speaking.model.dto.EvalDTO;
-import com.zhupinzan.speaking.model.entity.AssessmentRecord;
-import com.zhupinzan.speaking.repository.AssessmentRecordRepository;
+import com.zhupinzan.speaking.model.entity.Device;
+import com.zhupinzan.speaking.repository.DeviceRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.math.BigDecimal;
-import java.time.Instant;
+import java.time.OffsetDateTime;
 
 /**
  * 评估服务类，用于处理文本评估请求，调用AI服务并保存评估记录
@@ -18,12 +17,12 @@ import java.time.Instant;
 @RequiredArgsConstructor
 public class EvalService {
 
-    /** DeepSeek服务，用于调用AI评估 */
-    private final DeepSeekService deepSeekService;
     /** DeepSeek评估服务，用于调用AI评估 */
     private final DeepSeekEvalService deepSeekEvalService;
-    /** 评估记录仓库，用于数据库操作 */
-    private final AssessmentRecordRepository recordRepository;
+    /** 评估数据服务，用于保存记录 */
+    private final AssessmentService assessmentService;
+    /** 设备数据访问层 */
+    private final DeviceRepository deviceRepository;
 
     /**
      * 评估方法，处理文本评估请求
@@ -33,52 +32,26 @@ public class EvalService {
      * @throws Exception 如果评估失败
      */
     public EvalDTO.TextEvalResp evaluate(EvalDTO.TextEvalReq req, UserPersona persona) throws Exception {
-        
-        // 步骤1: 构建 System Prompt (契约的核心)
-        // 这里的 JSON 示例必须和 iOS 前端的结构 1:1 对应
-        String systemPrompt = """
-            你是一位专业的雅思口语考官。请根据【题目】评估用户的【回答】。
-            
-            【输出要求】
-            必须严格返回如下 JSON 格式，不要包含 Markdown 标记（如 ```json），不要包含其他废话：
-            {
-                "fluency": 85.0,        // 流利度/词汇丰富度 (0-100)
-                "completeness": 80.0,   // 完整度 (0-100)
-                "relevance": 90.0,      // 相关性 (0-100)
-                "grammarIssueCount": 1, // 语法错误数
-                "issues": [             // 具体错误列表
-                    { "offset": 2, "length": 4, "message": "时态错误", "replacements": ["went"] }
-                ],
-                "suggestions": ["建议1", "建议2"], // 改进建议
-                "missingKeywords": []   // 遗漏的关键点
-            }
-            注意：offset 是错误单词在原句中的起始索引（从0开始）。
-            """;
 
-        String userPrompt = String.format("【题目】%s\n【回答】%s", req.getPrompt(), req.getUserText());
+        // 步骤1: 并发安全的 Device 注册/保活
+        deviceRepository.upsertTouch(req.getDeviceId());
 
-        // 步骤2: 调用 DeepSeek (假设 deepSeekService.chat 返回纯字符串)
+        // 步骤2: 调用 DeepSeek 获取评估结果
         EvalDTO.TextEvalResp resp = deepSeekEvalService.evaluate(req.getPrompt(), req.getUserText(), persona);
 
-        // 步骤3: 序列化resp为JSON用于存储
-        String jsonStr = JSON.toJSONString(resp);
+        // 步骤3: 保存评估记录到数据库
+        assessmentService.saveAttempt(
+            req.getDeviceId(), // 从请求中获取设备ID
+            persona,
+            req.getPrompt(),
+            req.getUserText(),
+            req.getAudioUrl(),
+            resp,
+            req.getAudioUrl() != null // 根据是否有音频URL判断是否为音频模式
+        );
 
-        // 步骤4: 入库 (映射 DTO -> Entity)
-        AssessmentRecord record = new AssessmentRecord();
-        record.setUserId(1L); // 暂时硬编码
-        record.setTranscribedText(req.getUserText()); // 设置ASR识别的文本
-        record.setScoreFluency(BigDecimal.valueOf(resp.getFluency()));
-        record.setScoreIntegrity(BigDecimal.valueOf(resp.getCompleteness()));
-        // 总分简单取平均
-        double total = (resp.getFluency() + resp.getCompleteness() + resp.getRelevance()) / 3.0;
-        record.setScoreTotal(BigDecimal.valueOf(total));
-        record.setAiAnalysisRaw(jsonStr); // 保存原始 JSON
-        
-        record = recordRepository.save(record);
-
-        // 步骤5: 补充返回字段
-        resp.setRecordId(record.getRecordId());
-        resp.setUserText(req.getUserText()); // 设置用户输入文本
+        // 步骤4: 设置返回字段
+        resp.setUserText(req.getUserText());
 
         return resp;
     }

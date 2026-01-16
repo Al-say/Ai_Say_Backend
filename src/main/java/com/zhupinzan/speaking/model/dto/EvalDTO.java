@@ -10,11 +10,13 @@ public class EvalDTO {
     // --- 请求体 (Request) ---
     @Data
     public static class TextEvalReq {
+        private String deviceId;            // 设备ID (用于Growth统计)
         private String prompt;              // 题目
         private String userText;            // 用户回答
-        
+        private String audioUrl;            // 音频URL (可选)
+
         // 可选字段，允许为 null
-        private List<String> expectedKeywords; 
+        private List<String> expectedKeywords;
         private String referenceAnswer;
     }
 
@@ -37,6 +39,15 @@ public class EvalDTO {
         // 4. 补充字段 (后端建议加上，虽然最小契约没写，但前端HistoryDetailView可能需要)
         private String userText; // ASR识别出的文本
         private Long recordId;   // 数据库ID
+        private String createdAt; // 创建时间
+
+        // 计算总分的方法
+        public Double getOverallScore() {
+            if (fluency != null && completeness != null && relevance != null) {
+                return (fluency + completeness + relevance) / 3.0;
+            }
+            return null;
+        }
     }
 
     // --- 内部对象：问题详情 ---

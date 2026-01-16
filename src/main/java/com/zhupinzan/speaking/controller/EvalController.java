@@ -22,11 +22,12 @@ public class EvalController {
     public ResponseEntity<?> evalText(@RequestBody EvalDTO.TextEvalReq req,
                                       @RequestParam(value = "persona", defaultValue = "EXAM_PREP") UserPersona persona) {
         // 1. 参数校验 (契约：参数不合法返回 400)
-        if (req.getPrompt() == null || req.getPrompt().trim().isEmpty() ||
+        if (req.getDeviceId() == null || req.getDeviceId().trim().isEmpty() ||
+            req.getPrompt() == null || req.getPrompt().trim().isEmpty() ||
             req.getUserText() == null || req.getUserText().trim().isEmpty()) {
-            
+
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(new EvalDTO.ErrorResp("BAD_REQUEST", "prompt 或 userText 不能为空"));
+                    .body(new EvalDTO.ErrorResp("BAD_REQUEST", "deviceId, prompt 或 userText 不能为空"));
         }
 
         try {
