@@ -3,6 +3,9 @@ package com.zhupinzan.speaking.repository;
 import com.zhupinzan.speaking.model.UserPersona;
 import com.zhupinzan.speaking.model.entity.DailyTopic;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
@@ -28,4 +31,27 @@ public interface DailyTopicRepository extends JpaRepository<DailyTopic, Long> {
      * @return 删除的记录数
      */
     long deleteByForDateBefore(LocalDate date);
+
+    // 新增方法
+    Optional<DailyTopic> findByTopicDateAndPersona(LocalDate topicDate, String persona);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(value = """
+        INSERT INTO daily_topics(for_date, persona, title, prompt, image_url, payload, created_at)
+        VALUES (:date, :persona, :title, :prompt, :imageUrl, CAST(:payload AS jsonb), CURRENT_TIMESTAMP)
+        ON CONFLICT (for_date, persona)
+        DO UPDATE SET
+          title = EXCLUDED.title,
+          prompt = EXCLUDED.prompt,
+          image_url = EXCLUDED.image_url,
+          payload = EXCLUDED.payload
+        """, nativeQuery = true)
+    void upsertDailyTopic(
+        @Param("date") LocalDate date,
+        @Param("persona") String persona,
+        @Param("title") String title,
+        @Param("prompt") String prompt,
+        @Param("imageUrl") String imageUrl,
+        @Param("payload") String payloadJson
+    );
 }

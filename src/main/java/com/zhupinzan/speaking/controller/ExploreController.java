@@ -1,16 +1,45 @@
 package com.zhupinzan.speaking.controller;
 
+import com.zhupinzan.speaking.model.UserPersona;
+import com.zhupinzan.speaking.model.dto.SceneDTO;
+import com.zhupinzan.speaking.model.entity.Scene;
+import com.zhupinzan.speaking.repository.SceneRepository;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/explore")
 public class ExploreController {
 
-    @GetMapping
-    public ResponseEntity<?> getExplore() {
-        return ResponseEntity.ok("探索模块 - 发现更多学习资源");
+    private final SceneRepository sceneRepo;
+
+    // 推荐使用构造器注入
+    public ExploreController(SceneRepository sceneRepo) {
+        this.sceneRepo = sceneRepo;
+    }
+
+    /**
+     * 获取探索场景列表
+     * GET /api/explore/scenes?persona=EXAM_PREP&category=IELTS
+     */
+    @GetMapping("/scenes")
+    public ResponseEntity<List<SceneDTO>> getScenes(
+            @RequestParam(defaultValue = "EXAM_PREP") UserPersona persona,
+            @RequestParam(required = false) String category
+    ) {
+        var scenes = sceneRepo.findByPersonaAndCategory(persona, category).stream()
+                .map(s -> new SceneDTO(
+                        s.getId(),
+                        s.getCode(),
+                        s.getTitle(),
+                        s.getDescription(),
+                        s.getCategory(),
+                        s.getTargetPersona(),
+                        s.getInitialPrompt(),
+                        s.getImageUrl()
+                ))
+                .toList();
+        return ResponseEntity.ok(scenes);
     }
 }

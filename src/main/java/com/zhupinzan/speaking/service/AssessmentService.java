@@ -5,6 +5,7 @@ import com.zhupinzan.speaking.model.UserPersona;
 import com.zhupinzan.speaking.model.dto.EvalDTO;
 import com.zhupinzan.speaking.model.entity.AssessmentRecord;
 import com.zhupinzan.speaking.repository.AssessmentRecordRepository;
+import com.zhupinzan.speaking.service.business.ProfileProgressService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -20,6 +21,7 @@ import java.util.Map;
 public class AssessmentService {
 
     private final AssessmentRecordRepository repository;
+    private final ProfileProgressService profileProgressService;
 
     /**
      * 保存评估尝试记录
@@ -82,6 +84,10 @@ public class AssessmentService {
         // 回填ID和时间给前端
         result.setRecordId(saved.getId());
         result.setCreatedAt(saved.getCreatedAt().toString());
+
+        // 更新用户进度 (假设每次练习时长为1分钟，未来可从音频元数据获取)
+        long durationMs = 60000L; // 1分钟默认值
+        profileProgressService.onPracticeCompleted(deviceId, durationMs);
 
         return saved;
     }

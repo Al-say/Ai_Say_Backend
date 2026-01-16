@@ -12,6 +12,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
+import java.util.Map;
 
 /**
  * 题目生成定时任务
@@ -67,9 +68,9 @@ public class TopicGeneratorTask {
     }
 
     /**
-     * 为指定用户画像生成并保存题目
+     * 为指定用户画像生成题目（不保存，用于 Service 调用）
      */
-    private void generateAndSave(UserPersona persona, LocalDate date) {
+    public DailyTopic generateFor(LocalDate date, UserPersona persona) {
         try {
             // 构建AI提示词
             String systemPrompt = buildSystemPrompt(persona);
@@ -81,20 +82,52 @@ public class TopicGeneratorTask {
             // 解析AI响应
             TopicGenerationResponse response = parseAiResponse(jsonResponse);
 
-            // 保存到数据库
+            // 创建 DailyTopic 对象
             DailyTopic topic = new DailyTopic();
             topic.setTitle(response.getTitle());
             topic.setDescription(response.getDescription());
             topic.setTargetPersona(persona);
-            topic.setForDate(date);
+            topic.setTopicDate(date);
             topic.setAiSuggestions(jsonResponse);
-
-            topicRepository.save(topic);
+            topic.setPersona(persona.name());
+            topic.setPrompt(response.getDescription()); // 使用 description 作为 prompt
+            topic.setImageUrl("scene_daily_morning"); // 默认图片
+            topic.setPayload(Map.of("source", "ai_generated"));
 
             log.info("成功生成{}的{}题目: {}", date, persona, response.getTitle());
+            return topic;
 
         } catch (Exception e) {
             log.error("生成{}的{}题目失败: {}", date, persona, e.getMessage(), e);
+            return null; // 返回 null，让 Service 用 fallback
+        }
+    }
+
+    /**
+     * 为指定用户画像生成并保存题目
+     */
+    private void generateAndSave(UserPersona persona, LocalDate date) {
+        try {
+            var topic = generateFor(date, persona);
+            if (topic != null) {
+                topicRepository.save(topic);
+            } else {
+                log.warn("生成失败，使用 fallback");
+                var fallback = getFallbackTopic();
+                DailyTopic topicFallback = new DailyTopic();
+                topicFallback.setTitle(fallback.getTitle());
+                topicFallback.setDescription(fallback.getDescription());
+                topicFallback.setTargetPersona(persona);
+                topicFallback.setTopicDate(date);
+                topicFallback.setPersona(persona.name());
+                topicFallback.setPrompt(fallback.getDescription());
+                topicFallback.setImageUrl("scene_daily_morning");
+                topicFallback.setPayload(Map.of("source", "fallback"));
+                topicRepository.save(topicFallback);
+            }
+
+        } catch (Exception e) {
+            log.error("保存{}的{}题目失败: {}", date, persona, e.getMessage(), e);
         }
     }
 

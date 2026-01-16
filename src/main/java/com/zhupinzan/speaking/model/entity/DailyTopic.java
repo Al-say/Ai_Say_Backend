@@ -3,8 +3,13 @@ package com.zhupinzan.speaking.model.entity;
 import com.zhupinzan.speaking.model.UserPersona;
 import jakarta.persistence.*;
 import lombok.Data;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * 每日挑战题目实体
@@ -33,14 +38,33 @@ public class DailyTopic {
     private UserPersona targetPersona;
 
     /** 题目所属日期 */
-    @Column(nullable = false)
-    private LocalDate forDate;
+    @Column(name = "for_date", nullable = false)
+    private LocalDate topicDate;
 
     /** AI原始建议（可选，用于调试） */
     @Column(columnDefinition = "TEXT")
     private String aiSuggestions;
 
     /** 创建时间 */
-    @Column(nullable = false)
-    private LocalDate createdAt = LocalDate.now();
+    @Column(name = "created_at", nullable = false)
+    private OffsetDateTime createdAt;
+
+    // 新增字段
+    @Column(length = 32)
+    private String persona; // 存枚举名字符串
+
+    @Column(columnDefinition = "TEXT")
+    private String prompt;
+
+    @Column(name = "image_url")
+    private String imageUrl;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "jsonb", nullable = false)
+    private Map<String, Object> payload = new HashMap<>();
+
+    @PrePersist
+    protected void onCreate() {
+        if (createdAt == null) createdAt = OffsetDateTime.now();
+    }
 }
