@@ -13,7 +13,7 @@ public interface DeviceRepository extends JpaRepository<Device, Long> {
     @Transactional
     @Query(value = """
         INSERT INTO device (device_id, created_at, last_seen_at, meta)
-        VALUES (:deviceId, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '{}'::jsonb)
+        VALUES (:deviceId, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CAST('{}' AS jsonb))
         ON CONFLICT (device_id)
         DO UPDATE SET last_seen_at = CURRENT_TIMESTAMP
         """, nativeQuery = true)

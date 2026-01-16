@@ -6,32 +6,43 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import org.springframework.stereotype.Repository;
 
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Optional;
 
-@Repository
 public interface AssessmentRecordRepository extends JpaRepository<AssessmentRecord, Long> {
 
-    // 1. Projection 接口：只查列表需要的字段 (极小 Payload)
+    // 1. Projection: 列表页视图 (极度轻量，无 prompt/transcript/metrics)
     interface GrowthHistoryView {
         Long getId();
         OffsetDateTime getCreatedAt();
         Double getOverallScore();
+        // 仅返回核心三维分
         Double getFluency();
         Double getCompleteness();
         Double getRelevance();
-        String getPrompt(); // 列表页可能需要显示题目
     }
 
-    // 2. 列表查询：返回 Projection
+    // 2. DTO: 雷达图统计数据
+    interface RadarStatsDTO {
+        Double getAvgFluency();
+        Double getAvgCompleteness();
+        Double getAvgRelevance();
+        Long getTotalCount();
+    }
+
+    // A. 历史列表查询 (返回 Projection)
+    // 自动按 deviceId + persona 过滤
     List<GrowthHistoryView> findByDeviceIdAndPersona(
             String deviceId, UserPersona persona, Pageable pageable
     );
 
-    // 3. 聚合查询：直接算好雷达图的均值 (Growth Analysis)
-    // 这里的 JPQL 利用了扁平列，速度极快
+    // B. 单条详情查询 (返回全量 Entity)
+    // 增加 deviceId 校验，防止越权查询
+    Optional<AssessmentRecord> findByIdAndDeviceId(Long id, String deviceId);
+
+    // C. 雷达图聚合查询 (最近 N 天)
     @Query("""
         SELECT
             AVG(r.fluency) as avgFluency,
@@ -39,18 +50,18 @@ public interface AssessmentRecordRepository extends JpaRepository<AssessmentReco
             AVG(r.relevance) as avgRelevance,
             COUNT(r) as totalCount
         FROM AssessmentRecord r
-        WHERE r.deviceId = :deviceId AND r.persona = :persona
+        WHERE r.deviceId = :deviceId
+          AND r.persona = :persona
           AND r.createdAt >= :from
     """)
-    RadarStatsDTO findRadarStats(@Param("deviceId") String deviceId, @Param("persona") UserPersona persona, @Param("from") OffsetDateTime from);
+    RadarStatsDTO findRadarStats(
+            @Param("deviceId") String deviceId,
+            @Param("persona") UserPersona persona,
+            @Param("from") OffsetDateTime from
+    );
 
-    // DTO 接口定义 (也可以写成 Class)
-    interface RadarStatsDTO {
-        Double getAvgFluency();
-        Double getAvgCompleteness();
-        Double getAvgRelevance();
-        Long getTotalCount();
-    }
+    // 兼容旧接口：获取某设备和画像的评估记录 (用于历史记录)
+    List<AssessmentRecord> findByDeviceIdAndPersonaOrderByCreatedAtDesc(String deviceId, UserPersona persona);
 
     // 兼容旧接口：获取某设备的所有记录 (用于 Profile 总统计)
     List<AssessmentRecord> findByDeviceIdOrderByCreatedAtDesc(String deviceId);

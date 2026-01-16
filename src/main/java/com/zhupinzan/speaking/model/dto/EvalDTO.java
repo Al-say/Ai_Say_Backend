@@ -14,6 +14,7 @@ public class EvalDTO {
         private String prompt;              // 题目
         private String userText;            // 用户回答
         private String audioUrl;            // 音频URL (可选)
+        private String mode;                // 评估模式 (可选: "TEXT", "AUDIO")
 
         // 可选字段，允许为 null
         private List<String> expectedKeywords;

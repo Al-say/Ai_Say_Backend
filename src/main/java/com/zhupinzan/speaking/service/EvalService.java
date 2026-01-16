@@ -1,6 +1,7 @@
 package com.zhupinzan.speaking.service;
 
 import com.alibaba.fastjson2.JSON;
+import com.zhupinzan.speaking.model.AssessmentMode;
 import com.zhupinzan.speaking.model.UserPersona;
 import com.zhupinzan.speaking.model.dto.EvalDTO;
 import com.zhupinzan.speaking.model.entity.Device;
@@ -39,7 +40,18 @@ public class EvalService {
         // 步骤2: 调用 DeepSeek 获取评估结果
         EvalDTO.TextEvalResp resp = deepSeekEvalService.evaluate(req.getPrompt(), req.getUserText(), persona);
 
-        // 步骤3: 保存评估记录到数据库
+        // 步骤3: 解析 Mode (判空处理)
+        AssessmentMode mode = null;
+        if (req.getMode() != null && !req.getMode().trim().isEmpty()) {
+            try {
+                mode = AssessmentMode.valueOf(req.getMode().toUpperCase());
+            } catch (IllegalArgumentException e) {
+                // 如果mode无效，使用默认推断逻辑
+                mode = null;
+            }
+        }
+
+        // 步骤4: 保存评估记录到数据库
         assessmentService.saveAttempt(
             req.getDeviceId(), // 从请求中获取设备ID
             persona,
@@ -47,10 +59,10 @@ public class EvalService {
             req.getUserText(),
             req.getAudioUrl(),
             resp,
-            req.getAudioUrl() != null // 根据是否有音频URL判断是否为音频模式
+            mode // 传递解析后的mode，如果为null则在service中自动推断
         );
 
-        // 步骤4: 设置返回字段
+        // 步骤5: 设置返回字段
         resp.setUserText(req.getUserText());
 
         return resp;

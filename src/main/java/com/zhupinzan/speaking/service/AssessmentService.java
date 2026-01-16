@@ -29,11 +29,11 @@ public class AssessmentService {
      * @param userText 用户文本
      * @param audioUrl 音频URL
      * @param result 评估结果
-     * @param isAudio 是否为音频模式
+     * @param mode 评估模式 (如果为null则自动推断)
      * @return 保存的记录
      */
     public AssessmentRecord saveAttempt(String deviceId, UserPersona persona, String prompt,
-                                      String userText, String audioUrl, EvalDTO.TextEvalResp result, boolean isAudio) {
+                                      String userText, String audioUrl, EvalDTO.TextEvalResp result, AssessmentMode mode) {
 
         AssessmentRecord record = new AssessmentRecord();
         record.setDeviceId(deviceId);
@@ -41,7 +41,13 @@ public class AssessmentService {
         record.setPrompt(prompt);
         record.setTranscript(userText); // 改为transcript字段
         record.setAudioUrl(audioUrl);
-        record.setMode(isAudio ? AssessmentMode.AUDIO : AssessmentMode.TEXT);
+
+        // Mode 判空处理：如果传入null，则根据是否有音频URL自动推断
+        if (mode == null) {
+            mode = (audioUrl != null && !audioUrl.trim().isEmpty()) ? AssessmentMode.AUDIO : AssessmentMode.TEXT;
+        }
+        record.setMode(mode);
+
         record.setScene("practice"); // 默认值，未来可从 Controller 传
 
         // 分数落库 (扁平列)
