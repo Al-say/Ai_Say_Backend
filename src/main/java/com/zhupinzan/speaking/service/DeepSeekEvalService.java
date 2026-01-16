@@ -58,7 +58,7 @@ public class DeepSeekEvalService {
                         resp -> resp.bodyToMono(String.class)
                                 .map(msg -> new IllegalArgumentException("DeepSeek 4xx: " + msg)))
                 .bodyToMono(String.class)
-                .block(Duration.ofSeconds(15)); // overall block timeout
+                .block(Duration.ofSeconds(30)); // overall block timeout
 
         log.debug("📡 DeepSeek 原始响应: {}",
                 raw == null ? "<null>" : (raw.length() > 500 ? raw.substring(0, 500) + "..." : raw));
@@ -74,25 +74,34 @@ public class DeepSeekEvalService {
         return DeepSeekEvalResult.fallback("error", "AI service temporarily unavailable: " + t.getMessage());
     }
 
-    // 解析逻辑（提取 -> 严格解析 -> 补齐）
+    // 解析逻辑：先从 OpenAI 格式提取 content，再解析业务 JSON
     private DeepSeekEvalResult parseJsonResponse(String rawResponse) {
         if (rawResponse == null || rawResponse.trim().isEmpty()) {
             return DeepSeekEvalResult.fallback("error", "Empty response from AI");
         }
 
         try {
-            // 尝试直接解析
-            return parseStrict(rawResponse);
-        } catch (Exception e) {
-            log.warn("Direct JSON parse failed, attempting extraction: {}", e.getMessage());
-            try {
-                // 尝试从 API 响应中提取 JSON 内容（处理包含 markdown 或额外文本的情况）
+            // 🔑 关键修复：从 OpenAI 格式响应中提取 choices[0].message.content
+            com.fasterxml.jackson.databind.JsonNode root = om.readTree(rawResponse);
+            com.fasterxml.jackson.databind.JsonNode choicesNode = root.path("choices");
+
+            if (choicesNode.isArray() && choicesNode.size() > 0) {
+                String content = choicesNode.get(0).path("message").path("content").asText();
+                log.info("📝 提取到 AI 内容 ({}字): {}", content.length(),
+                        content.length() > 200 ? content.substring(0, 200) + "..." : content);
+
+                // 清理 Markdown 并解析业务 JSON
+                String cleanJson = extractFirstJsonObject(content);
+                return parseStrict(cleanJson);
+            } else {
+                // 可能直接就是业务 JSON（用于测试）
+                log.warn("响应不是 OpenAI 格式，尝试直接解析");
                 String extracted = extractFirstJsonObject(rawResponse);
                 return parseStrict(extracted);
-            } catch (Exception e2) {
-                log.error("JSON extraction/parsing failed, raw={}", safeTrim(rawResponse), e2);
-                return DeepSeekEvalResult.fallback("error", "Failed to parse AI response format");
             }
+        } catch (Exception e) {
+            log.error("JSON 解析失败, raw={}", safeTrim(rawResponse), e);
+            return DeepSeekEvalResult.fallback("error", "Failed to parse AI response: " + e.getMessage());
         }
     }
 

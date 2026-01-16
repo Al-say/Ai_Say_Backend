@@ -3,6 +3,7 @@ package com.zhupinzan.speaking.controller;
 import com.zhupinzan.speaking.model.UserPersona;
 import com.zhupinzan.speaking.model.dto.EvalAudioResp;
 import com.zhupinzan.speaking.model.dto.EvalDTO;
+import com.zhupinzan.speaking.service.DeepSeekEvalService;
 import com.zhupinzan.speaking.service.EvalOrchestratorService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -16,26 +17,24 @@ import org.springframework.web.multipart.MultipartFile;
 public class EvalController {
 
     private final EvalOrchestratorService evalOrchestratorService;
+    private final DeepSeekEvalService deepSeekEvalService;
 
     @PostMapping("/text")
     public ResponseEntity<?> evalText(@RequestBody EvalDTO.TextEvalReq req,
-                                      @RequestParam(value = "persona", defaultValue = "EXAM_PREP") UserPersona persona) {
+            @RequestParam(value = "persona", defaultValue = "EXAM_PREP") UserPersona persona) {
         // 1. 参数校验 (契约：参数不合法返回 400)
         if (req.getDeviceId() == null || req.getDeviceId().trim().isEmpty() ||
-            req.getPrompt() == null || req.getPrompt().trim().isEmpty() ||
-            req.getUserText() == null || req.getUserText().trim().isEmpty()) {
+                req.getPrompt() == null || req.getPrompt().trim().isEmpty() ||
+                req.getUserText() == null || req.getUserText().trim().isEmpty()) {
 
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new EvalDTO.ErrorResp("BAD_REQUEST", "deviceId, prompt 或 userText 不能为空"));
         }
 
         try {
-            // 2. 正常业务 - 这里暂时返回一个简单的响应
-            EvalDTO.TextEvalResp resp = new EvalDTO.TextEvalResp();
-            resp.setFluency(85.0);
-            resp.setCompleteness(80.0);
-            resp.setRelevance(90.0);
-            resp.setSuggestions(java.util.List.of("评估完成"));
+            // 2. 调用真实 DeepSeek AI 评估
+            var evalResult = deepSeekEvalService.evaluate(persona, req.getPrompt(), req.getUserText());
+            EvalDTO.TextEvalResp resp = deepSeekEvalService.mapToTextEvalResp(evalResult, req.getUserText());
             return ResponseEntity.ok(resp);
 
         } catch (Exception e) {
@@ -58,7 +57,7 @@ public class EvalController {
 
         if (file.isEmpty()) {
             return ResponseEntity.badRequest()
-                .body(new EvalDTO.ErrorResp("BAD_REQUEST", "音频文件不能为空"));
+                    .body(new EvalDTO.ErrorResp("BAD_REQUEST", "音频文件不能为空"));
         }
 
         try {
@@ -89,7 +88,7 @@ public class EvalController {
 
         if (audioFile.isEmpty()) {
             return ResponseEntity.badRequest()
-                .body(new EvalDTO.ErrorResp("BAD_REQUEST", "音频文件不能为空"));
+                    .body(new EvalDTO.ErrorResp("BAD_REQUEST", "音频文件不能为空"));
         }
 
         try {

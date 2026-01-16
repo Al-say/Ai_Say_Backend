@@ -20,15 +20,16 @@ public class DeepSeekClientConfig {
                         @Value("${deepseek.base-url:https://api.deepseek.com}") String baseUrl,
                         @Value("${deepseek.api-key:}") String apiKey) {
                 HttpClient httpClient = HttpClient.create()
-                                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 2000)
-                                .responseTimeout(Duration.ofSeconds(12))
+                                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 5000)
+                                .responseTimeout(Duration.ofSeconds(30))
                                 .doOnConnected(conn -> conn
-                                                .addHandlerLast(new ReadTimeoutHandler(12))
-                                                .addHandlerLast(new WriteTimeoutHandler(12)));
+                                                .addHandlerLast(new ReadTimeoutHandler(30))
+                                                .addHandlerLast(new WriteTimeoutHandler(30)));
 
                 WebClient.Builder b = WebClient.builder()
                                 .baseUrl(baseUrl)
-                                .clientConnector(new ReactorClientHttpConnector(httpClient));
+                                .clientConnector(new ReactorClientHttpConnector(httpClient))
+                                .defaultHeader("Content-Type", "application/json");
 
                 if (apiKey != null && !apiKey.isEmpty()) {
                         b.defaultHeader("Authorization", "Bearer " + apiKey);

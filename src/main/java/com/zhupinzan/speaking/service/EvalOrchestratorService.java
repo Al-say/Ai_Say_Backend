@@ -9,7 +9,7 @@ import com.zhupinzan.speaking.repository.AssessmentRecordRepository;
 import com.zhupinzan.speaking.repository.DeviceRepository;
 import com.zhupinzan.speaking.service.audio.AudioMetaService;
 import com.zhupinzan.speaking.service.audio.AudioTranscodeService;
-import com.zhupinzan.speaking.service.storage.ObjectStorageService;
+import com.zhupinzan.speaking.service.storage.LocalStorageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -26,7 +26,7 @@ import org.springframework.web.multipart.MultipartFile;
 public class EvalOrchestratorService {
 
     private final DeviceRepository deviceRepo;
-    private final ObjectStorageService storage;
+    private final LocalStorageService storage;
     private final AudioTranscodeService transcode;
     private final AudioMetaService meta;
     private final BaiduAsrService asr;
