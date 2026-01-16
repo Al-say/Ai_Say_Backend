@@ -22,20 +22,21 @@ public class EvalDTO {
     @Data
     @JsonInclude(JsonInclude.Include.NON_NULL) // 仅当字段不为null时才返回，减少传输体积
     public static class TextEvalResp {
-        // 核心必需字段
+        // 1. 核心评分 (必须匹配)
         private Double fluency;
         private Double completeness;
         private Double relevance;
 
-        // 可选扩展字段
-        private Long recordId;
-        private Integer grammarIssueCount;
+        // 2. 详细分析 (必须匹配)
         private List<Issue> issues;
         private List<String> suggestions;
-        private List<String> missingKeywords;
-        private String audioUrl;  // 新增：音频文件相对路径
-        private String createdAt; // 修改：改为String类型，ISO 8601格式
-        private String userText;  // 新增：ASR识别出的用户文本
+
+        // 3. 资源链接 (必须匹配)
+        private String audioUrl;
+
+        // 4. 补充字段 (后端建议加上，虽然最小契约没写，但前端HistoryDetailView可能需要)
+        private String userText; // ASR识别出的文本
+        private Long recordId;   // 数据库ID
     }
 
     // --- 内部对象：问题详情 ---

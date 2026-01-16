@@ -1,6 +1,7 @@
 package com.zhupinzan.speaking.service;
 
 import com.alibaba.fastjson2.JSON;
+import com.zhupinzan.speaking.model.UserPersona;
 import com.zhupinzan.speaking.model.dto.EvalDTO;
 import com.zhupinzan.speaking.model.entity.AssessmentRecord;
 import com.zhupinzan.speaking.repository.AssessmentRecordRepository;
@@ -19,16 +20,19 @@ public class EvalService {
 
     /** DeepSeek服务，用于调用AI评估 */
     private final DeepSeekService deepSeekService;
+    /** DeepSeek评估服务，用于调用AI评估 */
+    private final DeepSeekEvalService deepSeekEvalService;
     /** 评估记录仓库，用于数据库操作 */
     private final AssessmentRecordRepository recordRepository;
 
     /**
      * 评估方法，处理文本评估请求
      * @param req 评估请求DTO
+     * @param persona 用户画像
      * @return 评估响应DTO
      * @throws Exception 如果评估失败
      */
-    public EvalDTO.TextEvalResp evaluate(EvalDTO.TextEvalReq req) throws Exception {
+    public EvalDTO.TextEvalResp evaluate(EvalDTO.TextEvalReq req, UserPersona persona) throws Exception {
         
         // 步骤1: 构建 System Prompt (契约的核心)
         // 这里的 JSON 示例必须和 iOS 前端的结构 1:1 对应
@@ -54,13 +58,10 @@ public class EvalService {
         String userPrompt = String.format("【题目】%s\n【回答】%s", req.getPrompt(), req.getUserText());
 
         // 步骤2: 调用 DeepSeek (假设 deepSeekService.chat 返回纯字符串)
-        String jsonStr = deepSeekService.chat(systemPrompt, userPrompt);
-        
-        // 清洗数据：防止 AI 偶尔带上 Markdown 标记
-        jsonStr = jsonStr.replace("```json", "").replace("```", "").trim();
+        EvalDTO.TextEvalResp resp = deepSeekEvalService.evaluate(req.getPrompt(), req.getUserText(), persona);
 
-        // 步骤3: 解析为 DTO
-        EvalDTO.TextEvalResp resp = JSON.parseObject(jsonStr, EvalDTO.TextEvalResp.class);
+        // 步骤3: 序列化resp为JSON用于存储
+        String jsonStr = JSON.toJSONString(resp);
 
         // 步骤4: 入库 (映射 DTO -> Entity)
         AssessmentRecord record = new AssessmentRecord();
@@ -75,9 +76,9 @@ public class EvalService {
         
         record = recordRepository.save(record);
 
-        // 步骤5: 补充返回字段 (ID 和 时间)
+        // 步骤5: 补充返回字段
         resp.setRecordId(record.getRecordId());
-        resp.setCreatedAt(Instant.now().toString()); // ISO 8601格式
+        resp.setUserText(req.getUserText()); // 设置用户输入文本
 
         return resp;
     }

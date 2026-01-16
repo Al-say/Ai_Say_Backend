@@ -1,5 +1,6 @@
 package com.zhupinzan.speaking.controller;
 
+import com.zhupinzan.speaking.model.UserPersona;
 import com.zhupinzan.speaking.model.dto.EvalDTO;
 import com.zhupinzan.speaking.service.AudioService;
 import com.zhupinzan.speaking.service.EvalService;
@@ -10,7 +11,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 @RestController
-@RequestMapping("/api/growth")
+@RequestMapping("/api/eval")
 @RequiredArgsConstructor
 public class EvalController {
 
@@ -18,7 +19,8 @@ public class EvalController {
     private final AudioService audioService; // 注入新写的 AudioService
 
     @PostMapping("/text")
-    public ResponseEntity<?> evalText(@RequestBody EvalDTO.TextEvalReq req) {
+    public ResponseEntity<?> evalText(@RequestBody EvalDTO.TextEvalReq req,
+                                      @RequestParam(value = "persona", defaultValue = "EXAM_PREP") UserPersona persona) {
         // 1. 参数校验 (契约：参数不合法返回 400)
         if (req.getPrompt() == null || req.getPrompt().trim().isEmpty() ||
             req.getUserText() == null || req.getUserText().trim().isEmpty()) {
@@ -29,7 +31,7 @@ public class EvalController {
 
         try {
             // 2. 正常业务
-            EvalDTO.TextEvalResp resp = evalService.evaluate(req);
+            EvalDTO.TextEvalResp resp = evalService.evaluate(req, persona);
             return ResponseEntity.ok(resp);
 
         } catch (Exception e) {
@@ -47,7 +49,9 @@ public class EvalController {
     @PostMapping("/audio")
     public ResponseEntity<?> evalAudio(
             @RequestParam("file") MultipartFile file,
-            @RequestParam(value = "prompt", required = false) String prompt) {
+            @RequestParam(value = "prompt", required = false) String prompt,
+            // 🟢 新增：接收画像参数，默认为备考党
+            @RequestParam(value = "persona", defaultValue = "EXAM_PREP") UserPersona persona) {
         
         if (file.isEmpty()) {
             return ResponseEntity.badRequest()
@@ -56,7 +60,7 @@ public class EvalController {
 
         try {
             // 调用业务逻辑
-            EvalDTO.TextEvalResp resp = audioService.processAudio(file, prompt);
+            EvalDTO.TextEvalResp resp = audioService.processAudio(file, prompt, persona);
             return ResponseEntity.ok(resp);
             
         } catch (Exception e) {

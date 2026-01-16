@@ -1,5 +1,6 @@
 package com.zhupinzan.speaking.service;
 
+import com.zhupinzan.speaking.model.UserPersona;
 import com.zhupinzan.speaking.model.dto.EvalDTO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -29,9 +30,10 @@ public class AudioService {
      * 处理音频上传并评估
      * @param file 前端上传的 .m4a 文件
      * @param prompt 题目
+     * @param persona 用户画像
      * @return 评估结果
      */
-    public EvalDTO.TextEvalResp processAudio(MultipartFile file, String prompt) throws Exception {
+    public EvalDTO.TextEvalResp processAudio(MultipartFile file, String prompt, UserPersona persona) throws Exception {
 
         // 1. 生成文件保存路径 (按日期归档: uploads/2026-01-14/)
         String dateDir = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE);
@@ -55,6 +57,7 @@ public class AudioService {
         // 3. 保存文件到磁盘
         Files.copy(file.getInputStream(), targetLocation, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
         System.out.println("✅ 音频已落盘: " + targetLocation.toAbsolutePath());
+        System.out.println("📏 原始文件大小: " + Files.size(targetLocation) + " bytes");
 
         // 4. 生成相对 URL (用于数据库存储)
         // 例如: /uploads/2026-01-14/xxx-xxx.m4a
@@ -64,6 +67,7 @@ public class AudioService {
         // 5. 转码 (M4A -> WAV)
         File tempWav = audioConversionService.convertM4aToWav(targetLocation.toFile());
         System.out.println("🔄 转码完成: " + tempWav.getAbsolutePath());
+        System.out.println("📏 WAV文件大小: " + tempWav.length() + " bytes");
 
         // 6. 百度 ASR (WAV -> Text)
         String userText = baiduAsrService.speechToText(tempWav);
@@ -77,7 +81,7 @@ public class AudioService {
         req.setPrompt(prompt != null ? prompt : "Free Talk");
         req.setUserText(userText);
 
-        EvalDTO.TextEvalResp resp = deepSeekEvalService.evaluateText(prompt, userText);
+        EvalDTO.TextEvalResp resp = deepSeekEvalService.evaluate(prompt, userText, persona);
 
         // 8. 设置音频URL和用户文本
         resp.setAudioUrl(fileUrl);

@@ -1,5 +1,6 @@
 package com.zhupinzan.speaking.service;
 
+import com.zhupinzan.speaking.model.UserPersona;
 import com.zhupinzan.speaking.model.dto.EvalDTO;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -29,7 +30,7 @@ public class EvalServiceTest {
         try {
             // 2. 调用业务核心方法 (真实调用 AI)
             long startTime = System.currentTimeMillis();
-            EvalDTO.TextEvalResp resp = evalService.evaluate(req);
+            EvalDTO.TextEvalResp resp = evalService.evaluate(req, UserPersona.EXAM_PREP);
             long endTime = System.currentTimeMillis();
 
             // 3. 打印结果到控制台 (方便肉眼观察)
@@ -40,7 +41,7 @@ public class EvalServiceTest {
             System.out.println("📊 评分 - 流利度: " + resp.getFluency());
             System.out.println("📊 评分 - 完整度: " + resp.getCompleteness());
             System.out.println("📊 评分 - 相关性: " + resp.getRelevance());
-            System.out.println("🚩 发现语法问题数: " + resp.getGrammarIssueCount());
+            System.out.println("🚩 发现语法问题数: " + (resp.getIssues() != null ? resp.getIssues().size() : 0));
             
             if (resp.getIssues() != null) {
                 resp.getIssues().forEach(issue -> {
