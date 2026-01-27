@@ -4,6 +4,9 @@ import com.zhupinzan.speaking.model.UserPersona;
 import com.zhupinzan.speaking.model.dto.SceneDTO;
 import com.zhupinzan.speaking.repository.SceneRepository;
 import com.zhupinzan.speaking.service.business.SceneService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
@@ -26,12 +29,13 @@ public class ExploreController {
      * GET /api/explore/scenes?persona=EXAM_PREP&category=IELTS
      */
     @GetMapping("/scenes")
-    public ResponseEntity<List<SceneDTO>> getScenes(
+    public ResponseEntity<Page<SceneDTO>> getScenes(
             @RequestParam(defaultValue = "EXAM_PREP") UserPersona persona,
-            @RequestParam(required = false) String category
+            @RequestParam(required = false) String category,
+            @PageableDefault(size = 10, page = 0) Pageable pageable
     ) {
         var recommendedPrompts = sceneService.getRecommendedPrompts(persona);
-        var scenes = sceneRepo.findByPersonaAndCategory(persona, category).stream()
+        var scenesPage = sceneRepo.findByPersonaAndCategory(persona, category, pageable)
                 .map(s -> new SceneDTO(
                         s.getId(),
                         s.getCode(),
@@ -42,8 +46,7 @@ public class ExploreController {
                         s.getInitialPrompt(),
                         s.getImageUrl(),
                         recommendedPrompts
-                ))
-                .toList();
-        return ResponseEntity.ok(scenes);
+                ));
+        return ResponseEntity.ok(scenesPage);
     }
 }

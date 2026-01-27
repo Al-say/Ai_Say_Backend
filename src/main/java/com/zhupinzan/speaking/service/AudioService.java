@@ -138,8 +138,7 @@ public class AudioService {
      * @see EvalDTO.TextEvalResp 评估响应DTO
      * @see com.zhupinzan.speaking.model.UserPersona 用户枚举类型
      */
-    public EvalDTO.TextEvalResp processAudio(MultipartFile file, String prompt, UserPersona persona) throws Exception {
-
+        public EvalDTO.TextEvalResp processAudioAndEvaluate(MultipartFile file, String prompt, UserPersona persona) throws Exception {
         // 1. 生成文件保存路径 (按日期归档: uploads/2026-01-14/)
         String dateDir = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE);
         Path uploadPath = Paths.get(UPLOAD_DIR, dateDir);

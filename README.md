@@ -205,6 +205,13 @@ GET /api/growth/history?persona=EXAM_PREP&limit=50&from=2026-01-01T00:00:00Z
 Authorization: Bearer <token>
 ```
 
+### 获取成长历史（分页，推荐）
+
+```
+GET /api/growth/history/page?persona=EXAM_PREP&page=0&size=50&from=2026-01-01T00:00:00Z
+Authorization: Bearer <token>
+```
+
 ### 获取雷达图分析
 
 ```

@@ -2,10 +2,12 @@ package com.zhupinzan.speaking.controller;
 
 import com.zhupinzan.speaking.repository.UserProgressRepository;
 import com.zhupinzan.speaking.service.AuthUserService;
+import com.zhupinzan.speaking.service.storage.LocalStorageService;
 import com.zhupinzan.speaking.util.CurrentUser;
 import com.zhupinzan.speaking.util.CurrentUserInfo;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 /**
  * 用户个人中心REST控制器
@@ -79,6 +81,7 @@ public class ProfileController {
      * - 确保数据访问权限
      */
     private final AuthUserService authUserService;
+    private final LocalStorageService localStorageService;
 
     /**
      * 构造函数（使用依赖注入）
@@ -89,9 +92,10 @@ public class ProfileController {
      * @param userProgressRepo  用户进度数据仓库
      * @param authUserService  认证用户服务
      */
-    public ProfileController(UserProgressRepository userProgressRepo, AuthUserService authUserService) {
+    public ProfileController(UserProgressRepository userProgressRepo, AuthUserService authUserService, LocalStorageService localStorageService) {
         this.userProgressRepo = userProgressRepo;
         this.authUserService = authUserService;
+        this.localStorageService = localStorageService;
     }
 
     /**
@@ -132,6 +136,9 @@ public class ProfileController {
         return ResponseEntity.ok(new ProfileDTO(
             account.getId(),
             account.getDisplayName(),
+            account.getAvatarUrl(),
+            account.getPhone(),
+            account.getBio(),
             account.getEmail(),
             account.getEmailVerified(),
             account.getDeviceId(),
@@ -145,6 +152,9 @@ public class ProfileController {
     public record ProfileDTO(
         Long userId,
         String displayName,
+        String avatarUrl,
+        String phone,
+        String bio,
         String email,
         Boolean emailVerified,
         String deviceId,
@@ -155,6 +165,11 @@ public class ProfileController {
      * 绑定设备请求DTO
      */
     public record BindDeviceReq(String deviceId) {}
+
+    /**
+     * 更新个人资料请求DTO
+     */
+    public record UpdateProfileReq(String displayName, String avatarUrl, String phone, String bio) {}
 
     /**
      * 通用状态响应
@@ -281,11 +296,132 @@ public class ProfileController {
     }
 
     /**
+     * 更新个人资料
+     */
+    @PatchMapping
+    public ResponseEntity<ProfileDTO> updateProfile(@CurrentUser CurrentUserInfo user, @RequestBody UpdateProfileReq req) {
+        if (req == null) {
+            throw new IllegalArgumentException("请求体不能为空");
+        }
+        var displayName = req.displayName();
+        var avatarUrl = req.avatarUrl();
+        var phone = req.phone();
+        var bio = req.bio();
+        if (displayName != null) {
+            displayName = displayName.trim();
+            if (displayName.isEmpty()) {
+                throw new IllegalArgumentException("displayName 不能为空");
+            }
+            if (displayName.length() > 64) {
+                throw new IllegalArgumentException("displayName 过长");
+            }
+        }
+        if (avatarUrl != null) {
+            avatarUrl = avatarUrl.trim();
+            if (avatarUrl.isEmpty()) {
+                throw new IllegalArgumentException("avatarUrl 不能为空");
+            }
+            if (avatarUrl.length() > 512) {
+                throw new IllegalArgumentException("avatarUrl 过长");
+            }
+        }
+        if (phone != null) {
+            phone = phone.trim();
+            if (phone.isEmpty()) {
+                throw new IllegalArgumentException("phone 不能为空");
+            }
+            if (phone.length() > 32) {
+                throw new IllegalArgumentException("phone 过长");
+            }
+        }
+        if (bio != null) {
+            bio = bio.trim();
+            if (bio.isEmpty()) {
+                throw new IllegalArgumentException("bio 不能为空");
+            }
+            if (bio.length() > 512) {
+                throw new IllegalArgumentException("bio 过长");
+            }
+        }
+
+        var account = authUserService.requireAccount(user);
+        if (displayName != null) {
+            account.setDisplayName(displayName);
+        }
+        if (avatarUrl != null) {
+            account.setAvatarUrl(avatarUrl);
+        }
+        if (phone != null) {
+            account.setPhone(phone);
+        }
+        if (bio != null) {
+            account.setBio(bio);
+        }
+        var saved = authUserService.updateAccount(account);
+        return ResponseEntity.ok(new ProfileDTO(
+            saved.getId(),
+            saved.getDisplayName(),
+            saved.getAvatarUrl(),
+            saved.getPhone(),
+            saved.getBio(),
+            saved.getEmail(),
+            saved.getEmailVerified(),
+            saved.getDeviceId(),
+            saved.getLastLoginAt() == null ? null : saved.getLastLoginAt().toString()
+        ));
+    }
+
+    /**
      * 绑定用户设备
      */
     @PostMapping("/device")
     public ResponseEntity<?> bindDevice(@CurrentUser CurrentUserInfo user, @RequestBody BindDeviceReq req) {
         authUserService.bindDevice(user, req == null ? null : req.deviceId());
         return ResponseEntity.ok(new StatusResp("ok"));
+    }
+
+    /**
+     * 上传用户头像
+     */
+    @PostMapping("/avatar")
+    public ResponseEntity<ProfileDTO> uploadAvatar(@CurrentUser CurrentUserInfo user, @RequestPart("file") MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("文件不能为空");
+        }
+        if (file.getContentType() == null || !file.getContentType().startsWith("image/")) {
+            throw new IllegalArgumentException("仅支持图片文件");
+        }
+
+        var account = authUserService.requireAccount(user);
+        String ext = getFileExtension(file.getOriginalFilename(), ".png");
+        byte[] bytes;
+        try {
+            bytes = file.getBytes();
+        } catch (Exception e) {
+            throw new IllegalArgumentException("文件读取失败");
+        }
+
+        String url = localStorageService.uploadAvatar(bytes, String.valueOf(account.getId()), ext);
+        account.setAvatarUrl(url);
+        var saved = authUserService.updateAccount(account);
+        return ResponseEntity.ok(new ProfileDTO(
+            saved.getId(),
+            saved.getDisplayName(),
+            saved.getAvatarUrl(),
+            saved.getPhone(),
+            saved.getBio(),
+            saved.getEmail(),
+            saved.getEmailVerified(),
+            saved.getDeviceId(),
+            saved.getLastLoginAt() == null ? null : saved.getLastLoginAt().toString()
+        ));
+    }
+
+    private String getFileExtension(String filename, String defaultExt) {
+        if (filename == null || filename.isBlank()) {
+            return defaultExt;
+        }
+        int lastIdx = filename.lastIndexOf(".");
+        return lastIdx == -1 ? defaultExt : filename.substring(lastIdx);
     }
 }

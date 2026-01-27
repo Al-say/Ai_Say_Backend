@@ -43,15 +43,71 @@ import org.springframework.web.multipart.MultipartFile;
 @Slf4j
 public class EvalOrchestratorService {
 
-    // 依赖注入的各个服务组件
-    private final DeviceRepository deviceRepo;                // 设备数据仓库，负责设备信息的持久化和管理
-    private final StorageService storage;                     // 云存储服务，处理音频文件的存储和CDN分发
-    private final AudioTranscodeService transcode;            // 音频转码引擎，确保音频格式标准化
-    private final AudioMetaService meta;                      // 音频分析工具，提取时长、码率等技术参数
-    private final BaiduAsrService asr;                        // 百度语音识别引擎，实现高精度的语音转文字
-    private final DeepSeekEvalService deepSeek;               // DeepSeek AI评估引擎，提供专业级的口语评分
-    private final AssessmentRecordRepository recordRepo;      // 评估记录仓储，保存完整的评估历史
-    private final ProfileProgressService progressService;     // 用户进度追踪器，记录学习数据和成长轨迹
+    // ========== 系统核心组件依赖注入 ==========
+
+    /**
+     * 设备数据仓库 - 用户设备状态管理
+     * <p>
+     * 负责设备信息的持久化存储和管理，确保每个用户设备都有唯一标识。
+     * 通过upsert操作保证设备记录的存在性和活跃状态，是用户数据一致性的基础。
+     */
+    private final DeviceRepository deviceRepo;
+
+    /**
+     * 云存储服务 - 媒体文件持久化
+     * <p>
+     * 处理音频文件的存储和CDN分发，支持本地存储和云存储两种实现。
+     * 提供统一的文件上传接口，返回可访问的URL，便于前端播放和下载。
+     */
+    private final StorageService storage;
+
+    /**
+     * 音频转码引擎 - 格式标准化处理
+     * <p>
+     * 将各种音频格式转换为系统标准格式（16kHz单声道WAV），
+     * 确保后续的ASR和AI处理能够正常进行，提供一致的输入格式。
+     */
+    private final AudioTranscodeService transcode;
+
+    /**
+     * 音频元数据提取器 - 技术参数分析
+     * <p>
+     * 从音频文件中提取时长、码率、采样率等技术参数，
+     * 为时长统计和质量检查提供数据支持。
+     */
+    private final AudioMetaService meta;
+
+    /**
+     * 百度语音识别引擎 - 语音转文字核心
+     * <p>
+     * 调用百度智能云ASR服务，实现高精度的语音识别功能。
+     * 支持多种语言和场景，是AI评估流程的重要输入。
+     */
+    private final BaiduAsrService asr;
+
+    /**
+     * DeepSeek AI评估引擎 - 智能评分核心
+     * <p>
+     * 集成DeepSeek大模型，对用户口语进行多维度评估。
+     * 提供流利度、完整度、相关性等专业评分和改进建议。
+     */
+    private final DeepSeekEvalService deepSeek;
+
+    /**
+     * 评估记录仓储 - 历史数据管理
+     * <p>
+     * 负责评估记录的持久化存储，保存完整的评估历史数据。
+     * 支持查询、统计和分析，为后续的数据挖掘提供基础。
+     */
+    private final AssessmentRecordRepository recordRepo;
+
+    /**
+     * 用户进度追踪器 - 学习数据分析
+     * <p>
+     * 记录用户的学习轨迹和成长数据，包括练习时长、练习次数等。
+     * 为学习报告、成长曲线和个性化推荐提供数据支持。
+     */
+    private final ProfileProgressService progressService;
 
     /**
      * 核心评估流程 - 执行完整的端到端音频评估
@@ -248,20 +304,71 @@ public class EvalOrchestratorService {
     }
 
     /**
-     * 文件扩展名提取工具方法
-     * <p>
-     * 安全地从文件名中提取扩展名，处理各种边界情况：
-     * - 空文件名 → 默认.m4a（iOS录音常用格式）
-     * - 无扩展名 → 默认.m4a
-     * - 多个点 → 取最后一个点之后的内容
-     * <p>
-     * <b>设计考虑：</b><br>
-     * • 默认.m4a：兼容iOS设备的录音格式<br>
-     * • 性能优化：使用String.lastIndexOf而非正则表达式<br>
-     * • 安全性：避免路径遍历攻击风险
+     * 文件扩展名提取器 - 安全的扩展名处理
      *
-     * @param filename 原始文件名，可能为null或包含路径
-     * @return 文件扩展名（包含点号，如.mp3）
+     * <h2>方法概述</h2>
+     * 这是一个关键的工具方法，负责从各种格式的文件名中安全地提取文件扩展名。
+     * 考虑到用户可能从不同设备、使用不同应用上传文件，此方法需要处理各种边界情况。
+     *
+     * <h2>逻辑设计</h2>
+     * <ul>
+     *   <li><b>空值处理</b>：当filename为null时，返回默认的.m4a扩展名</li>
+     *   <li><b>无扩展名</b>：当文件名不包含点号时，返回默认的.m4a扩展名</li>
+     *   <li><b>多扩展名</b>：当文件名包含多个点号时，取最后一个点号之后的内容</li>
+     *   <li><b>安全检查</b>：确保返回的扩展名不包含路径信息</li>
+     * </ul>
+     *
+     * <h2>默认值选择理由</h2>
+     * <ul>
+     *   <li><b>.m4a</b>：iOS设备的默认录音格式，兼容性最好</li>
+     *   <li><b>流行度</b>：.m4a是现代设备最常用的音频格式之一</li>
+     *   <li><b>压缩质量</b>：相比MP3，m4a通常有更好的音质</li>
+     *   <li><b>兼容性</b>：大多数现代浏览器和播放器都支持</li>
+     * </ul>
+     *
+     * <h2>性能优化策略</h2>
+     * <ul>
+     *   <li><b>避免正则</b>：使用String.lastIndexOf()比正则表达式更快</li>
+     *   <li><b>直接访问</b>：通过数组索引直接访问字符，减少方法调用</li>
+     *   <li><b>快速返回</b>：常见情况优先处理，避免不必要的计算</li>
+     * </ul>
+     *
+     * <h2>边界情况处理</h2>
+     * <table border="1" cellpadding="3" cellspacing="0">
+     *   <tr><th>输入</th><th>输出</th><th>说明</th></tr>
+     *   <tr><td>null</td><td>.m4a</td><td>空文件名处理</td></tr>
+     *   <tr><td>"audio"</td><td>.m4a</td><td>无扩展名</td></tr>
+     *   <tr><td>"file.mp3"</td><td>.mp3</td><td>标准扩展名</td></tr>
+     *   <tr><td>"archive.tar.gz"</td><td>.gz</td><td>多扩展名取最后一个</td></tr>
+     *   <tr><td>".hidden"</td><td>.hidden</td><td>文件名以点开头</td></tr>
+     * </table>
+     *
+     * <h2>安全考虑</h2>
+     * <ul>
+     *   <li><b>路径安全</b>：返回的扩展名不包含路径分隔符</li>
+     *   <li><b>类型验证</b>：确保返回的是有效的扩展名格式</li>
+     *   <li><b>输入清理</b>：虽然不进行深入验证，但确保基本安全</li>
+     * </ul>
+     *
+     * <h2>典型使用场景</h2>
+     * <ul>
+     *   <li><b>文件上传</b>：确定上传文件的类型</li>
+     *   <li><b>格式转换</b>：选择合适的转换器</li>
+     *   <li><b>存储管理</b>：按类型组织文件</li>
+     *   <li><b>媒体处理</b>：选择合适的编解码器</li>
+     * </ul>
+     *
+     * <h2>扩展建议</h2>
+     * <ul>
+     *   <li>可以扩展支持白名单机制，只允许特定扩展名</li>
+     *   <li>可以添加MIME类型映射，提供更精确的文件类型判断</li>
+     *   <li>可以考虑文件头检测，避免仅依赖扩展名</li>
+     * </ul>
+     *
+     * @param filename 原始文件名字符串，可能为null、空字符串或包含路径
+     * @return 文件扩展名（包含点号，如.mp3），默认返回.m4a
+     * @see String#lastIndexOf(String) 字符串查找方法
+     * @see java.io.File#getName() 获取文件名（不含路径）
      */
     private String getFileExtension(String filename) {
         if (filename == null)
@@ -271,47 +378,171 @@ public class EvalOrchestratorService {
     }
 
     /**
-     * 服务降级方法 - 创建AI评分失败的备选结果
-     * <p>
-     * 当DeepSeek AI评分服务出现异常时，此方法提供优雅降级，
-     * 确保系统在服务不可用时仍能正常响应，维持用户体验。
-     * <p>
-     * <b>降级策略：</b><br>
-     * • 状态标识：使用"error"标记服务异常状态<br>
-     * • 友好提示：向用户说明服务暂时不可用<br>
-     * • 建议操作：引导用户稍后重试<br>
-     * • 默认分数：避免影响现有评分逻辑
-     * <p>
-     * <b>使用场景：</b><br>
-     • DeepSeek API超时或连接失败<br>
-     • 配额耗尽达到限制<br>
-     • 模型服务维护期间<br>
-     • 网络连接不稳定时
+     * 服务降级处理器 - AI评分异常的优雅降级
+     *
+     * <h2>降级设计理念</h2>
+     * 在分布式系统中，服务的不可用是常态。此方法实现了系统的弹性设计，
+     * 当核心AI评分服务出现问题时，提供降级响应而非系统崩溃，
+     * 确保服务的可用性和用户体验的连续性。
+     *
+     * <h2>降级策略详解</h2>
+     * <ul>
+     *   <li><b>状态标识</b>：返回状态码"error"，明确标识服务异常状态</li>
+     *   <li><b>友好提示</b>：向用户说明"AI评分服务暂时不可用"，避免技术术语</li>
+     *   <li><b>操作引导</b>：建议用户"稍后重试"，提供明确的解决方向</li>
+     *   <li><b>默认分数</b>：设置0分，避免评分数据异常</li>
+     *   <li><b>结构一致</b>：保持与正常响应相同的数据结构</li>
+     * </ul>
+     *
+     * <h2>典型失效场景</h2>
+     * <table border="1" cellpadding="3" cellspacing="0">
+     *   <tr><th>场景类型</th><th>原因</th><th>影响范围</th><th>降级处理</th></tr>
+     *   <tr><td>网络故障</td><td>API连接超时</td><td>实时影响</td><td>立即降级</td></tr>
+     *   <tr><td>配额耗尽</td><td>调用次数达到限制</td><td>周期性影响</td><td>限流降级</td></tr>
+     *   <tr><td>服务维护</td><td>模型升级或维护</td><td>计划内影响</td><td>预告降级</td></tr>
+     *   <tr><td>系统过载</td><td>高并发导致超时</td><td>临时影响</td><td>熔断降级</td></tr>
+     * </table>
+     *
+     * <h2>技术实现细节</h2>
+     * <ul>
+     *   <li><b>工厂模式</b>：使用静态工厂方法创建降级结果</li>
+     *   <li><b>数据一致性</b>：保持与正常响应相同的字段结构</li>
+     *   <li><b>错误隔离</b>：降级结果不会影响后续流程</li>
+     *   <li><b>监控标记</b>：错误状态便于监控系统识别</li>
+     * </ul>
+     *
+     * <h2>用户体验设计</h2>
+     * <ul>
+     *   <li><b>透明性</b>：明确告知用户服务状态</li>
+     *   <li><b>指导性</b>：提供具体的操作建议</li>
+     *   <li><b>一致性</b>：保持界面布局不变</li>
+     *   <li><b>可恢复性</b>：用户可以重试操作</li>
+     * </ul>
+     *
+     * <h2>监控与告警</h2>
+     * <ul>
+     *   <li><b>错误计数</b>：记录降级次数和频率</li>
+     *   <li><b>触发告警</b>：当降级超过阈值时触发告警</li>
+     *   <li><b>根因分析</b>：记录降级的具体原因</li>
+     *   <li><b>自动恢复</b>：监控服务恢复情况</li>
+     * </ul>
+     *
+     * <h2>扩展性考虑</h2>
+     * <ul>
+     *   <li><b>多级降级</b>：可以设计多级降级策略</li>
+     *   <li><b>权重降级</b>：根据严重程度调整响应</li>
+     *   <li><b>备用服务</b>：集成备用AI服务</li>
+     *   <li><b>缓存降级</b>：使用历史评分数据</li>
+     * </ul>
+     *
+     * <h2>性能影响</h2>
+     * <ul>
+     *   <li><b>响应速度</b>：降级响应比正常响应更快</li>
+     *   <li><b>资源消耗</b>：降级逻辑消耗极少资源</li>
+     *   <li><b>并发能力</b>：降级可以处理更多并发请求</li>
+     *   <li><b>系统稳定性</b>：避免级联失败</li>
+     * </ul>
+     *
+     * <h2>最佳实践</h2>
+     * <ul>
+     *   <li>在服务设计初期就考虑降级策略</li>
+     *   <li>记录详细的降级日志，便于分析</li>
+     *   <li>定期演练降级流程，确保可靠性</li>
+     *   <li>监控降级频率，及时处理问题</li>
+     * </ul>
      *
      * @return DeepSeekEvalResult 包含降级信息的评估结果对象
-     *         状态为"error"，分数为0，包含友好提示信息
+     *         包含状态"error"、友好提示信息、默认0分和建议列表
+     * @throws RuntimeException 在极少数情况下可能抛出异常
+     * @see DeepSeekEvalResult#fallback(String, String) 降级结果工厂方法
+     * @see org.slf4j.Logger#error(String) 错误日志记录
      */
     private DeepSeekEvalResult createFallbackResult() {
         return DeepSeekEvalResult.fallback("error", "AI评分服务暂时不可用，请稍后重试");
     }
 
     /**
-     * 安全的评分指标提取工具方法
-     * <p>
-     * 从Map中提取数值类型的评分指标，处理各种异常情况：
-     * - Map为null → 返回默认值
-     * - Key不存在 → 返回默认值
-     * - Value不是Number → 返回默认值
-     * <p>
-     * <b>类型转换处理：</b><br>
-     * • Integer, Double, Float等Number类型统一转换为double<br>
-     * • 避免ClassCastException异常<br>
-     * • 保持类型安全
+     * 安全的评分指标提取器 - 健壮的数据访问方法
      *
-     * @param map 包含评分指标的Map，可能为null
-     * @param key 要提取的指标键名
-     * @param defaultValue 当提取失败时的默认值
-     * @return 指标值或默认值
+     * <h2>方法概述</h2>
+     * 这是一个通用的安全数据访问工具，用于从Map中提取数值类型的评分指标。
+     * 在AI评估结果处理中，经常需要从Map中获取各种评分数据，但Map可能为null、
+     * 键不存在或值类型不匹配，此方法提供了一致的处理方式。
+     *
+     * <h2>健壮性设计</h2>
+     * <ul>
+     *   <li><b>null检查</b>：Map为null时直接返回默认值</li>
+     *   <li><b>存在性检查</b>：Key不存在时返回默认值</li>
+     *   <li><b>类型检查</b>：Value不是Number类型时返回默认值</li>
+     *   <li><b>转换安全</b>：所有Number类型统一转换为double</li>
+     * </ul>
+     *
+     * <h2>类型处理机制</h2>
+     * <p>支持的所有Number类型及其转换：</p>
+     * <table border="1" cellpadding="3" cellspacing="0">
+     *   <tr><th>原始类型</th><th>转换方式</th><th>精度保证</th></tr>
+     *   <tr><td>Integer</td><td>doubleValue()</td><td>精确转换</td></tr>
+     *   <tr><td>Double</td><td>直接返回</td><td>保持原值</td></tr>
+     *   <tr><td>Float</td><td>doubleValue()</td><td>精度损失</td></tr>
+     *   <tr><td>Long</td><td>doubleValue()</td><td>大数精度</td></tr>
+     *   <tr><td>Short</td><td>doubleValue()</td><td>精确转换</td></tr>
+     *   <tr><td>Byte</td><td>doubleValue()</td><td>精确转换</td></tr>
+     * </table>
+     *
+     * <h2>错误处理策略</h2>
+     * <ul>
+     *   <li><b>防御性编程</b>：主动检查各种异常情况</li>
+     *   <li><b>容错设计</b>：异常时优雅降级到默认值</li>
+     *   <li><b>类型安全</b>：避免ClassCastException</li>
+     *   <li><b>日志记录</b>：可以添加异常日志（可选）</li>
+     * </ul>
+     *
+     * <h2>性能优化</h2>
+     * <ul>
+     *   <li><b>快速失败</b>：遇到异常情况立即返回</li>
+     *   <li><b>减少对象创建</b>：避免不必要的中间对象</li>
+     *   <li><b>类型检查优化</b>：使用instanceof进行类型判断</li>
+     *   <li><b>缓存友好</b>：方法无状态，适合频繁调用</li>
+     * </ul>
+     *
+     * <h2>典型使用场景</h2>
+     * <ul>
+     *   <li><b>AI评分结果处理</b>：从评估结果Map中提取各维度分数</li>
+     *   <li><b>配置参数获取</b>：从配置Map中获取数值型配置</li>
+     *   <li><b>统计数据处理</b>：从统计结果中提取数值指标</li>
+     *   <li><b>API响应解析</b>：从JSON响应中提取数值字段</li>
+     * </ul>
+     *
+     * <h2>与其他方法的协作</h2>
+     * <ul>
+     *   <li><b>createFallbackResult</b>：配合处理AI评分失败的情况</li>
+     *   <li><b>evaluateAudio</b>：用于提取评分结果中的各项指标</li>
+     *   <li><b>数据库保存</b>：为数据库字段提供安全的数值</li>
+     * </ul>
+     *
+     * <h2>扩展性建议</h2>
+     * <ul>
+     *   <li><b>泛型支持</b>：可以扩展为支持泛型方法</li>
+     *   <li><b>复杂类型</b>：支持嵌套Map或复杂对象</li>
+     *   <li><b>验证规则</b>：添加数值范围验证</li>
+     *   <li><b>转换选项</b>：支持多种返回类型（int、double等）</li>
+     * </ul>
+     *
+     * <h2>最佳实践</h2>
+     * <ul>
+     *   <li>为默认值选择合理的业务默认值</li>
+     *   <li>在关键业务逻辑中使用此方法保证健壮性</li>
+     *   <li>考虑添加日志记录异常情况（调试用）</li>
+     *   <li>注意性能敏感场景下的调用频率</li>
+     * </ul>
+     *
+     * @param map 包含评分指标的Map集合，可能为null或为空
+     * @param key 要提取的指标键名，不能为null
+     * @param defaultValue 当提取失败时返回的默认值，确保业务逻辑不受影响
+     * @return 提取的数值指标，如果提取失败则返回默认值
+     * @throws NullPointerException 当key为null时可能抛出（取决于Map实现）
+     * @see java.util.Map#get(Object) 标准Map获取方法
+     * @see Number#doubleValue() Number类型转换方法
      */
     private double getMetricValue(java.util.Map<?, ?> map, String key, double defaultValue) {
         if (map == null) {

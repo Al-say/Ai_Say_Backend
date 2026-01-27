@@ -220,4 +220,14 @@ public class AuthUserService {
 
         log.info("设备绑定成功，用户ID: {}, 设备ID: {}", userId, cleanedDeviceId);
     }
+
+    /**
+     * 更新用户账号信息
+     */
+    public UserAccount updateAccount(UserAccount account) {
+        if (account == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "账户不能为空");
+        }
+        return userAccountRepository.save(account);
+    }
 }

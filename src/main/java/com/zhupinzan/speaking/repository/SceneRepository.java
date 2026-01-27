@@ -2,6 +2,8 @@ package com.zhupinzan.speaking.repository;
 
 import com.zhupinzan.speaking.model.UserPersona;
 import com.zhupinzan.speaking.model.entity.Scene;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -24,8 +26,9 @@ public interface SceneRepository extends JpaRepository<Scene, Long> {
           AND (:category IS NULL OR s.category = :category)
         ORDER BY s.category ASC, s.id ASC
     """)
-    List<Scene> findByPersonaAndCategory(
+    Page<Scene> findByPersonaAndCategory(
             @Param("persona") UserPersona persona,
-            @Param("category") String category
+            @Param("category") String category,
+            Pageable pageable
     );
 }

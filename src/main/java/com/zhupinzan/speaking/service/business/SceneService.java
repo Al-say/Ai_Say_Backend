@@ -1,24 +1,30 @@
 package com.zhupinzan.speaking.service.business;
 
 import com.zhupinzan.speaking.model.UserPersona;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.util.Arrays;
 import java.util.List;
 
 @Service
 public class SceneService {
 
+    private final List<String> examPrepPrompts;
+    private final List<String> careerGrowthPrompts;
+
+    public SceneService(
+            @Value("${scene.prompts.exam-prep}") String examPrepPromptsStr,
+            @Value("${scene.prompts.career-growth}") String careerGrowthPromptsStr) {
+        this.examPrepPrompts = Arrays.asList(examPrepPromptsStr.split(";"));
+        this.careerGrowthPrompts = Arrays.asList(careerGrowthPromptsStr.split(";"));
+    }
+
     public List<String> getRecommendedPrompts(UserPersona persona) {
         if (persona == UserPersona.EXAM_PREP) {
-            return List.of(
-                "Describe a historical building you visited.", // 雅思 Part 2
-                "Do you think AI will replace teachers?"      // 雅思 Part 3
-            );
+            return examPrepPrompts;
         } else {
-            return List.of(
-                "Tell me about a time you handled a conflict.", // 面试题
-                "How would you ask your boss for a deadline extension?" // 职场沟通
-            );
+            return careerGrowthPrompts;
         }
     }
 }

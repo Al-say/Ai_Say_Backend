@@ -102,6 +102,7 @@ public class DailyChallengeService {
         DailyTopic t = new DailyTopic();
         t.setTopicDate(date);
         t.setPersona(persona.name());
+        t.setTargetPersona(persona);
         t.setTitle("今日挑战 (兜底)");
         t.setPrompt(persona == UserPersona.EXAM_PREP
             ? "Describe a book you have recently read."

@@ -114,6 +114,9 @@ class DailyChallengeServiceTest {
         // 模拟upsert后的查询返回一个兜底topic
         DailyTopic fallbackTopicForRepo = new DailyTopic();
         fallbackTopicForRepo.setTitle("今日挑战 (兜底)");
+        fallbackTopicForRepo.setPersona(persona.name());
+        fallbackTopicForRepo.setTargetPersona(persona);
+        fallbackTopicForRepo.setPayload(Map.of("source", "static_fallback"));
         when(dailyTopicRepository.findByTopicDateAndPersona(today, persona.name()))
             .thenReturn(Optional.empty()) // 第一次缓存未命中
             .thenReturn(Optional.of(fallbackTopicForRepo)); // upsert后查询命中

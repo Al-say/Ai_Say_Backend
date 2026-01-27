@@ -84,6 +84,33 @@ public class UserAccount {
      */
     private String displayName;
 
+    @Column(name = "avatar_url", length = 512)
+    /**
+     * 用户头像URL
+     * 【业务含义】用户头像的可访问地址
+     * 【数据类型】String(512) - 支持较长URL
+     * 【业务规则】可为空
+     */
+    private String avatarUrl;
+
+    @Column(name = "phone", length = 32)
+    /**
+     * 用户手机号
+     * 【业务含义】用户绑定的手机号
+     * 【数据类型】String(32) - 国际号码兼容
+     * 【业务规则】可为空
+     */
+    private String phone;
+
+    @Column(name = "bio", length = 512)
+    /**
+     * 用户签名/简介
+     * 【业务含义】用户个性签名或简介
+     * 【数据类型】String(512)
+     * 【业务规则】可为空
+     */
+    private String bio;
+
     @Column(name = "device_id", length = 64)
     /**
      * 当前设备标识符

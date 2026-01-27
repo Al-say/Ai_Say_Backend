@@ -190,6 +190,31 @@ public class GrowthController {
     }
 
     /**
+     * 获取用户评估历史分页列表（推荐）
+     *
+     * @param page  页码，从0开始
+     * @param size  每页大小，最大200
+     */
+    @GetMapping("/history/page")
+    public ResponseEntity<org.springframework.data.domain.Page<AssessmentRecordRepository.GrowthHistoryView>> getHistoryPage(
+            @CurrentUser CurrentUserInfo user,
+            @RequestParam(defaultValue = "EXAM_PREP") UserPersona persona,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size,
+            @RequestParam(value = "from", required = false) String from
+    ) {
+        var deviceId = authUserService.requireDeviceId(user);
+        int safePage = Math.max(0, page);
+        int safeSize = Math.max(1, Math.min(size, 200));
+        var pageable = PageRequest.of(safePage, safeSize, Sort.by(Sort.Direction.DESC, "createdAt"));
+        if (from != null && !from.isBlank()) {
+            var fromDate = parseOffsetDateTime(from);
+            return ResponseEntity.ok(repo.findPageByDeviceIdAndPersonaAndCreatedAtAfter(deviceId, persona, fromDate, pageable));
+        }
+        return ResponseEntity.ok(repo.findPageByDeviceIdAndPersona(deviceId, persona, pageable));
+    }
+
+    /**
      * 获取用户能力雷达图分析数据API端点
      * <p>
      * 该接口通过数据库聚合查询计算用户在特定时间段内的能力平均分，
