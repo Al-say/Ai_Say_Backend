@@ -10,5 +10,6 @@ public record SceneDTO(
         String category,
         UserPersona targetPersona,
         String initialPrompt,
-        String imageUrl
+        String imageUrl,
+        java.util.List<String> recommendedPrompts
 ) {}

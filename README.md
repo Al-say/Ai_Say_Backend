@@ -127,10 +127,10 @@ GET /api/home/daily?persona=EXAM_PREP
 
 ```
 POST /api/eval/text
+Authorization: Bearer <token>
 Content-Type: application/json
 
 {
-  "deviceId": "device-uuid",
   "prompt": "Describe your favorite hobby",
   "userText": "I really enjoy playing basketball..."
 }
@@ -140,13 +140,45 @@ Content-Type: application/json
 
 ```
 POST /api/eval/audio/full
+Authorization: Bearer <token>
 Content-Type: multipart/form-data
 
 参数:
-- deviceId: 设备ID
 - persona: 用户画像 (EXAM_PREP/CAREER_GROWTH)
 - scene: 场景名称
 - audio: 音频文件 (支持 m4a, wav, mp3 等)
+```
+
+### Apple 登录与鉴权
+
+```
+POST /api/auth/apple
+Content-Type: application/json
+
+{
+  "idToken": "apple_identity_token",
+  "deviceId": "device-uuid",
+  "displayName": "Your Name"
+}
+```
+
+响应包含 `accessToken`，后续接口通过 `Authorization: Bearer <token>` 访问。
+
+```
+GET /api/auth/me
+Authorization: Bearer <token>
+```
+
+（可选）如果旧用户未绑定设备，可调用：
+
+```
+POST /api/auth/bind-device
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "deviceId": "device-uuid"
+}
 ```
 
 **响应示例:**
@@ -169,19 +201,36 @@ Content-Type: multipart/form-data
 ### 获取成长历史
 
 ```
-GET /api/growth/history?deviceId=xxx&persona=EXAM_PREP&limit=50
+GET /api/growth/history?persona=EXAM_PREP&limit=50&from=2026-01-01T00:00:00Z
+Authorization: Bearer <token>
 ```
 
 ### 获取雷达图分析
 
 ```
-GET /api/growth/analysis?deviceId=xxx&persona=EXAM_PREP
+GET /api/growth/analysis?persona=EXAM_PREP&from=2026-01-01T00:00:00Z
+Authorization: Bearer <token>
+```
+
+### 获取成长详情（全量）
+
+```
+GET /api/growth/detail/{id}
+Authorization: Bearer <token>
+```
+
+### 获取成长详情（轻量，推荐）
+
+```
+GET /api/growth/detail/{id}/lite
+Authorization: Bearer <token>
 ```
 
 ### 获取用户统计
 
 ```
-GET /api/profile/stats?deviceId=xxx
+GET /api/profile/stats
+Authorization: Bearer <token>
 ```
 
 **响应示例:**
@@ -199,7 +248,8 @@ GET /api/profile/stats?deviceId=xxx
 ### 音频上传
 
 ```
-POST /api/audio/upload?deviceId=xxx
+POST /api/audio/upload
+Authorization: Bearer <token>
 Content-Type: multipart/form-data
 
 参数: file (音频文件)

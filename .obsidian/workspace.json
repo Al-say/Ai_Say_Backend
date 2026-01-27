@@ -1,0 +1,208 @@
+{
+  "main": {
+    "id": "e081598e9678be88",
+    "type": "split",
+    "children": [
+      {
+        "id": "bf67cab9faff678f",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "bbaf0e69990f04fa",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "README.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "README"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "c91b95cb84a8b239",
+    "type": "split",
+    "children": [
+      {
+        "id": "cdcb2084ccb7097d",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "2ced16cbd6953761",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false
+              },
+              "icon": "lucide-folder-closed",
+              "title": "文件列表"
+            }
+          },
+          {
+            "id": "89f14c280f05dc67",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "搜索"
+            }
+          },
+          {
+            "id": "284f0ffa5fb18b5b",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "书签"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "088cd80d92a81920",
+    "type": "split",
+    "children": [
+      {
+        "id": "39d0dd55201a817e",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "976389e551b7dc30",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "README.md",
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "README 的反向链接列表"
+            }
+          },
+          {
+            "id": "e575f01569a5d9e7",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "file": "README.md",
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "README 的出链列表"
+            }
+          },
+          {
+            "id": "2c0ed53e36bfb74c",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "标签"
+            }
+          },
+          {
+            "id": "89238d764df0f871",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "添加笔记属性"
+            }
+          },
+          {
+            "id": "e62e784618d0c580",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "README.md",
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "README 的大纲"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:打开快速切换": false,
+      "graph:查看关系图谱": false,
+      "canvas:新建白板": false,
+      "daily-notes:打开/创建今天的日记": false,
+      "templates:插入模板": false,
+      "command-palette:打开命令面板": false,
+      "bases:新建数据库": false
+    }
+  },
+  "active": "bbaf0e69990f04fa",
+  "lastOpenFiles": [
+    "Skill/01_架构与模块/04_错误码与异常策略.md",
+    "Skill/01_架构与模块/03_数据流与时序.md",
+    "Skill/01_架构与模块/02_模块边界与职责.md",
+    "Skill/01_架构与模块/01_总体架构.md",
+    "Skill/00_快速开始/03_端到端跑通清单.md",
+    "Skill/00_快速开始/02_本地启动.md",
+    "Skill/00_快速开始/01_项目概览.md",
+    "Skill/README.md",
+    "Skill/06_工程规范",
+    "Skill/05_测试与联调",
+    "Skill/04_AI与评测",
+    "Skill/03_数据与存储",
+    "Skill/02_API",
+    "Skill/01_架构与模块",
+    "Skill/00_快速开始",
+    "target/classes/com/zhupinzan/speaking/model/UserPersona.class",
+    "target/classes/com/zhupinzan/speaking/service/GrowthService.class",
+    "src/main/java/com/zhupinzan/speaking/service/GrowthService.java",
+    "README.md"
+  ]
+}

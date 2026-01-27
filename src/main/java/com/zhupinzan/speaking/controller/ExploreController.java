@@ -2,8 +2,8 @@ package com.zhupinzan.speaking.controller;
 
 import com.zhupinzan.speaking.model.UserPersona;
 import com.zhupinzan.speaking.model.dto.SceneDTO;
-import com.zhupinzan.speaking.model.entity.Scene;
 import com.zhupinzan.speaking.repository.SceneRepository;
+import com.zhupinzan.speaking.service.business.SceneService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
@@ -13,10 +13,12 @@ import java.util.List;
 public class ExploreController {
 
     private final SceneRepository sceneRepo;
+    private final SceneService sceneService;
 
     // 推荐使用构造器注入
-    public ExploreController(SceneRepository sceneRepo) {
+    public ExploreController(SceneRepository sceneRepo, SceneService sceneService) {
         this.sceneRepo = sceneRepo;
+        this.sceneService = sceneService;
     }
 
     /**
@@ -28,6 +30,7 @@ public class ExploreController {
             @RequestParam(defaultValue = "EXAM_PREP") UserPersona persona,
             @RequestParam(required = false) String category
     ) {
+        var recommendedPrompts = sceneService.getRecommendedPrompts(persona);
         var scenes = sceneRepo.findByPersonaAndCategory(persona, category).stream()
                 .map(s -> new SceneDTO(
                         s.getId(),
@@ -37,7 +40,8 @@ public class ExploreController {
                         s.getCategory(),
                         s.getTargetPersona(),
                         s.getInitialPrompt(),
-                        s.getImageUrl()
+                        s.getImageUrl(),
+                        recommendedPrompts
                 ))
                 .toList();
         return ResponseEntity.ok(scenes);

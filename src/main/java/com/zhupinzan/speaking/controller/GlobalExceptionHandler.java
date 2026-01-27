@@ -25,11 +25,18 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiErrorResponse> handleResponseStatus(ResponseStatusException e, HttpServletRequest req) {
         HttpStatus status = (HttpStatus) e.getStatusCode();
         ErrorCode code = switch (status) {
+            case UNAUTHORIZED -> ErrorCode.UNAUTHORIZED;
             case NOT_FOUND -> ErrorCode.NOT_FOUND;
             case FORBIDDEN -> ErrorCode.FORBIDDEN;
+            case BAD_REQUEST -> ErrorCode.BAD_REQUEST;
             default -> ErrorCode.BAD_REQUEST;
         };
         return buildResponse(status, code, e.getReason(), req);
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiErrorResponse> handleIllegalArgument(IllegalArgumentException e, HttpServletRequest req) {
+        return buildResponse(HttpStatus.BAD_REQUEST, ErrorCode.BAD_REQUEST, e.getMessage(), req);
     }
 
     // 处理兜底的 500 错误

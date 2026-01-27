@@ -2,7 +2,7 @@ package com.zhupinzan.speaking.service.storage;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Primary;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -16,9 +16,9 @@ import java.util.UUID;
  * 本地文件存储服务 - MinIO 不可用时的备用方案
  */
 @Service
-@Primary
+@ConditionalOnProperty(name = "storage.provider", havingValue = "local", matchIfMissing = true)
 @Slf4j
-public class LocalStorageService {
+public class LocalStorageService implements StorageService {
 
     private final Path storagePath;
     private final String publicBaseUrl;
@@ -42,6 +42,7 @@ public class LocalStorageService {
      * 
      * @return 返回可供前端访问的完整 URL
      */
+    @Override
     public String uploadAudio(byte[] data, String deviceId, String extension) {
         try {
             // 生成规范路径: audio/2026-01-16/device_uuid/file_uuid.wav

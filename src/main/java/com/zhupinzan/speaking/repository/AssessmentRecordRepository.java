@@ -1,6 +1,7 @@
 package com.zhupinzan.speaking.repository;
 
 import com.zhupinzan.speaking.model.UserPersona;
+import com.zhupinzan.speaking.model.AssessmentMode;
 import com.zhupinzan.speaking.model.entity.AssessmentRecord;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -43,14 +44,48 @@ public interface AssessmentRecordRepository extends JpaRepository<AssessmentReco
         Long getTotalCount();
     }
 
+    // 3. Projection: 详情轻量视图 (不含 transcript/metrics/feedback)
+    interface GrowthDetailView {
+        Long getId();
+
+        OffsetDateTime getCreatedAt();
+
+        OffsetDateTime getUpdatedAt();
+
+        AssessmentMode getMode();
+
+        UserPersona getPersona();
+
+        String getScene();
+
+        String getPrompt();
+
+        Double getOverallScore();
+
+        Double getFluency();
+
+        Double getCompleteness();
+
+        Double getRelevance();
+
+        String getAudioUrl();
+    }
+
     // A. 历史列表查询 (返回 Projection)
     // 自动按 deviceId + persona 过滤
     List<GrowthHistoryView> findByDeviceIdAndPersona(
             String deviceId, UserPersona persona, Pageable pageable);
 
+    // 历史列表：带起始时间过滤
+    List<GrowthHistoryView> findByDeviceIdAndPersonaAndCreatedAtAfter(
+            String deviceId, UserPersona persona, OffsetDateTime from, Pageable pageable);
+
     // B. 单条详情查询 (返回全量 Entity)
     // 增加 deviceId 校验，防止越权查询
     Optional<AssessmentRecord> findByIdAndDeviceId(Long id, String deviceId);
+
+    // D. 单条详情轻量查询 (返回 Projection)
+    Optional<GrowthDetailView> findDetailViewByIdAndDeviceId(Long id, String deviceId);
 
     // C. 雷达图聚合查询 (最近 N 天)
     @Query("""

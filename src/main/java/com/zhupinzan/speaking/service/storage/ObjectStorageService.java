@@ -1,6 +1,7 @@
 package com.zhupinzan.speaking.service.storage;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -10,7 +11,8 @@ import java.time.LocalDate;
 import java.util.UUID;
 
 @Service
-public class ObjectStorageService {
+@ConditionalOnProperty(name = "storage.provider", havingValue = "minio")
+public class ObjectStorageService implements StorageService {
 
     private final S3Client s3Client;
     private final String bucket;
@@ -28,6 +30,7 @@ public class ObjectStorageService {
      * 上传字节数组
      * @return 返回可供前端访问的完整 URL
      */
+    @Override
     public String uploadAudio(byte[] data, String deviceId, String extension) {
         // 生成规范路径: audio/2026-01-16/device_uuid/file_uuid.m4a
         String key = String.format("audio/%s/%s/%s%s",

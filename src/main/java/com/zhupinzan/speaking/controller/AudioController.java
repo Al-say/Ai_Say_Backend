@@ -2,7 +2,10 @@ package com.zhupinzan.speaking.controller;
 
 import com.zhupinzan.speaking.service.audio.AudioMetaService;
 import com.zhupinzan.speaking.service.audio.AudioTranscodeService;
-import com.zhupinzan.speaking.service.storage.ObjectStorageService;
+import com.zhupinzan.speaking.service.storage.StorageService;
+import com.zhupinzan.speaking.service.AuthUserService;
+import com.zhupinzan.speaking.util.CurrentUser;
+import com.zhupinzan.speaking.util.CurrentUserInfo;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -19,16 +22,20 @@ public class AudioController {
 
     private final AudioTranscodeService transcodeService;
     private final AudioMetaService metaService;
-    private final ObjectStorageService storage;
+    private final StorageService storage;
+    private final AuthUserService authUserService;
 
-    public AudioController(AudioTranscodeService transcodeService, AudioMetaService metaService, ObjectStorageService storage) {
+    public AudioController(AudioTranscodeService transcodeService, AudioMetaService metaService, StorageService storage,
+                           AuthUserService authUserService) {
         this.transcodeService = transcodeService;
         this.metaService = metaService;
         this.storage = storage;
+        this.authUserService = authUserService;
     }
 
     @PostMapping("/upload")
-    public ResponseEntity<?> upload(@RequestParam String deviceId, @RequestPart("file") MultipartFile file) {
+    public ResponseEntity<?> upload(@CurrentUser CurrentUserInfo user, @RequestPart("file") MultipartFile file) {
+        var deviceId = authUserService.requireDeviceId(user);
         try {
             if (file == null || file.isEmpty()) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Empty file");

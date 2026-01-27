@@ -53,3 +53,22 @@ CREATE TABLE IF NOT EXISTS assessment_record (
 -- 索引
 CREATE INDEX IF NOT EXISTS idx_ar_device_persona_time
     ON assessment_record(device_id, persona, created_at DESC);
+
+-- 覆盖成长历史列表常用字段，提升 index-only 扫描概率
+CREATE INDEX IF NOT EXISTS idx_ar_device_persona_time_cover
+    ON assessment_record(device_id, persona, created_at DESC)
+    INCLUDE (overall_score, fluency, completeness, relevance, scene);
+
+-- 3. 用户账号表 (Apple 登录)
+CREATE TABLE IF NOT EXISTS user_account (
+    id BIGSERIAL PRIMARY KEY,
+    apple_sub VARCHAR(128) NOT NULL UNIQUE,
+    email VARCHAR(256),
+    email_verified BOOLEAN,
+    display_name VARCHAR(128),
+    device_id VARCHAR(64),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    last_login_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_user_account_device ON user_account(device_id);

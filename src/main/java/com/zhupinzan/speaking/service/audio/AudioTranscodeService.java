@@ -18,16 +18,19 @@ public class AudioTranscodeService {
     private final Path tempDir;
     private final int sampleRate;
     private final int channels;
+    private final boolean denoiseEnabled;
 
     public AudioTranscodeService(
             @Value("${ffmpeg.path}") String ffmpegPath,
             @Value("${audio.temp-dir}") String tempDir,
             @Value("${audio.target.sample-rate:16000}") int sampleRate,
-            @Value("${audio.target.channels:1}") int channels) {
+            @Value("${audio.target.channels:1}") int channels,
+            @Value("${audio.denoise.enabled:false}") boolean denoiseEnabled) {
         this.ffmpegPath = ffmpegPath;
         this.tempDir = Paths.get(tempDir);
         this.sampleRate = sampleRate;
         this.channels = channels;
+        this.denoiseEnabled = denoiseEnabled;
     }
 
     /**
@@ -51,6 +54,11 @@ public class AudioTranscodeService {
             cmd.add("error");
             cmd.add("-i");
             cmd.add(in.toAbsolutePath().toString());
+            // Denoise
+            if (denoiseEnabled) {
+                cmd.add("-af");
+                cmd.add("afftdn");
+            }
             // 目标格式：16k mono PCM 16-bit
             cmd.add("-ac");
             cmd.add(String.valueOf(channels));

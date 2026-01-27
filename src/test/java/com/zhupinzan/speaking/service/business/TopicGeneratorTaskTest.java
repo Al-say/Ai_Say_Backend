@@ -3,6 +3,7 @@ package com.zhupinzan.speaking.service.business;
 import com.zhupinzan.speaking.model.UserPersona;
 import com.zhupinzan.speaking.model.entity.DailyTopic;
 import com.zhupinzan.speaking.repository.DailyTopicRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -22,6 +23,11 @@ class TopicGeneratorTaskTest {
     @Autowired
     private DailyTopicRepository topicRepository;
 
+    @BeforeEach
+    void setup() {
+        topicRepository.deleteAll();
+    }
+
     @Test
     void shouldSaveAndRetrieveDailyTopic() {
         // Given
@@ -30,6 +36,7 @@ class TopicGeneratorTaskTest {
         topic.setTitle("Test Topic");
         topic.setDescription("Test Description");
         topic.setTargetPersona(UserPersona.EXAM_PREP);
+        topic.setPersona(UserPersona.EXAM_PREP.name());
         topic.setTopicDate(today);
         topic.setAiSuggestions("{\"title\":\"Test\",\"description\":\"Test\"}");
 
@@ -57,6 +64,7 @@ class TopicGeneratorTaskTest {
         oldTopic.setTitle("Old Topic");
         oldTopic.setDescription("Old Description");
         oldTopic.setTargetPersona(UserPersona.EXAM_PREP);
+        oldTopic.setPersona(UserPersona.EXAM_PREP.name());
         oldTopic.setTopicDate(oldDate);
         oldTopic.setAiSuggestions("old");
         topicRepository.save(oldTopic);
