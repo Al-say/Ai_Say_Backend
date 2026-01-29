@@ -6,19 +6,25 @@ import org.springframework.stereotype.Component;
 import lombok.Data;
 
 /**
- * 百度服务配置类
+ * 百度AI服务配置类
  * <p>
  * 该配置类用于管理百度AI服务的相关配置信息，主要包括百度AI平台的三个核心参数：
  * 应用ID（AppID）、API密钥（API Key）和Secret Key。这些配置主要用于接入百度AI提供的
  * 各种服务，如语音识别、自然语言处理、图像识别等。
  * </p>
  *
- * <h3>设计意图</h3>
+ * <h3>整体作用和设计意图</h3>
+ * <p>
+ * 本配置类是系统AI服务层的重要组成部分，为应用提供与百度AI平台无缝对接的能力。
+ * 通过集中管理配置参数，实现了配置与业务逻辑的分离，提高了系统的可维护性和可测试性。
+ * 该设计遵循了Spring Boot的自动配置原则，简化了第三方服务的集成过程。
+ * </p>
  * <ul>
- *   <li>集中管理百度AI服务的配置参数，避免在代码中硬编码敏感信息</li>
- *   <li>通过Spring Boot的配置属性绑定机制，支持多种配置源（application.yml、环境变量等）</li>
- *   <li>提供类型安全的配置对象，便于其他服务注入使用</li>
- *   <li>支持配置的前缀绑定，提高配置的可维护性</li>
+ *   <li><b>配置集中化</b>: 集中管理百度AI服务的配置参数，避免在代码中硬编码敏感信息</li>
+ *   <li><b>多源支持</b>: 通过Spring Boot的配置属性绑定机制，支持多种配置源（application.yml、环境变量等）</li>
+ *   <li><b>类型安全</b>: 提供类型安全的配置对象，便于其他服务注入使用</li>
+ *   <li><b>前缀绑定</b>: 支持配置的前缀绑定，提高配置的可维护性和避免命名冲突</li>
+ *   <li><b>扩展性</b>: 便于扩展新的配置项，支持未来功能升级</li>
  * </ul>
  *
  * <h3>主要配置项</h3>
@@ -108,6 +114,44 @@ import lombok.Data;
  *     // 调用百度AI服务...
  * }
  * }</pre>
+ */
+@ConfigurationProperties(prefix = "baidu")
+/**
+ * Bean配置说明
+ * <p>
+ * 该配置类通过以下注解实现Bean的自动配置和管理：
+ * </p>
+ * <ul>
+ *   <li><b>@ConfigurationProperties</b>:
+ *       <ul>
+ *         <li>prefix = "baidu": 指定配置属性的前缀</li>
+ *         <li>实现配置属性到Bean属性的自动绑定</li>
+ *         <li>支持类型转换和验证</li>
+ *       </ul>
+ *   </li>
+ *   <li><b>@Component</b>:
+ *       <ul>
+ *         <li>将类注册为Spring Bean</li>
+ *         <li>支持依赖注入</li>
+ *         <li>由Spring容器管理生命周期</li>
+ *       </ul>
+ *   </li>
+ *   <li><b>@Data</b> (Lombok):
+ *       <ul>
+ *         <li>自动生成getter、setter、toString等方法</li>
+ *         <li>简化JavaBean开发</li>
+ *         <li>减少样板代码</li>
+ *       </ul>
+ *   </li>
+ * </ul>
+ * <p>
+ * 配置加载流程：
+ * 1. Spring Boot启动时扫描@ConfigurationProperties注解
+ * 2. 根据prefix="baidu"读取配置文件中的baidu.*相关属性
+ * 3. 将配置值自动绑定到对应的Bean属性
+ * 4. 将Bean注册到Spring容器中
+ * 5. 其他服务可以通过@Autowired注入使用
+ * </p>
  */
 @ConfigurationProperties(prefix = "baidu")
 @Component

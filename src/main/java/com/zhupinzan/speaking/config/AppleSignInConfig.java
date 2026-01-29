@@ -12,12 +12,19 @@ import org.springframework.stereotype.Component;
  * 配置JWT令牌的签名验证和本地令牌管理。
  * </p>
  *
- * <h3>设计意图</h3>
+ * <h3>整体作用和设计意图</h3>
+ * <p>
+ * 本配置类实现了应用与Apple Sign In服务的安全集成，为用户提供隐私保护的统一登录体验。
+ * 通过集中管理Apple登录相关的配置参数，实现了认证逻辑与业务逻辑的解耦，提高了系统的安全性和可维护性。
+ * 该设计遵循了OAuth 2.0和OpenID Connect标准，确保了认证流程的安全性和合规性。
+ * </p>
  * <ul>
- *   <li>集中管理Apple登录服务的配置参数</li>
- *   <li>提供JWT令牌的签名密钥配置</li>
- *   <li>支持自定义令牌生命周期管理</li>
- *   <li>通过Spring配置属性机制实现配置的灵活注入</li>
+ *   <li><b>安全集成</b>: 集中管理Apple登录服务的配置参数，确保认证过程的安全性</li>
+ *   <li><b>JWT管理</b>: 提供JWT令牌的签名密钥配置，支持本地令牌的生成和验证</li>
+ *   <li><b>生命周期控制</b>: 支持自定义令牌生命周期管理，平衡安全性和用户体验</li>
+ *   <li><b>灵活配置</b>: 通过Spring配置属性机制实现配置的灵活注入和环境隔离</li>
+ *   <li><b>标准化实现</b>: 遵循Apple Sign In的技术规范，确保与苹果生态系统的兼容性</li>
+ *   <li><b>隐私保护</b>: 支持匿名用户标识，保护用户隐私信息</li>
  * </ul>
  *
  * <h3>主要配置项</h3>
@@ -47,12 +54,49 @@ import org.springframework.stereotype.Component;
  *   <li>提供默认值，简化配置</li>
  * </ul>
  *
- * <h3>安全考虑</h3>
+ * <h3>安全考虑和实现细节</h3>
  * <ul>
- *   <li><b>密钥安全</b>: tokenSecret必须妥善保管，建议通过安全配置管理</li>
- *   <li><b>令牌过期</b>: 定期检查令牌过期时间，及时刷新</li>
- *   <li><b>签名验证</li>: 使用Apple提供的公钥验证JWT签名</li>
- *   <li><b>最小权限</li>: 配置必要的最小权限范围</li>
+ *   <li><b>密钥安全</b>:
+ *       <ul>
+ *         <li>tokenSecret必须妥善保管，建议通过安全配置管理</li>
+ *         <li>使用强随机算法生成密钥，避免使用弱密码</li>
+ *         <li>密钥长度建议至少256位（32字节）</li>
+ *         <li>实施密钥轮换机制，定期更新密钥</li>
+ *         <li>使用密钥加密服务（KMS）保护密钥</li>
+ *       </ul>
+ *   </li>
+ *   <li><b>令牌安全</b>:
+ *       <ul>
+ *         <li>合理设置tokenTtlSeconds，平衡安全性和用户体验</li>
+ *         <li>实现令牌自动刷新机制</li>
+ *         <li>记录令牌发放和撤销事件</li>
+ *         <li>监控异常令牌使用模式</li>
+ *       </ul>
+ *   </li>
+ *   <li><b>签名验证</b>:
+ *       <ul>
+ *         <li>使用Apple提供的公钥验证JWT签名</li>
+ *         <li>缓存公钥以提高验证性能</li>
+ *         <li>定期更新公钥缓存</li>
+ *         <li>验证JWT的标准声明（iss, aud, exp等）</li>
+ *       </ul>
+ *   </li>
+ *   <li><b>权限控制</b>:
+ *       <ul>
+ *         <li>配置必要的最小权限范围</li>
+ *         <li>实现基于角色的访问控制（RBAC）</li>
+ *         <li>敏感操作需要额外验证</li>
+ *         <li>记录所有认证相关日志</li>
+ *       </ul>
+ *   </li>
+ *   <li><b>隐私保护</b>:
+ *       <ul>
+ *         <li>尊重用户隐私选择，不收集不必要信息</li>
+ *         <li>支持匿名用户标识</li>
+ *         <li>合规处理用户数据</li>
+ *         <li>遵循GDPR等隐私法规</li>
+ *       </ul>
+ *   </li>
  * </ul>
  *
  * <h3>与外部服务的集成</h3>
@@ -111,6 +155,117 @@ import org.springframework.stereotype.Component;
  *   <li><b>AppleSignInController</b>: 处理Apple登录回调</li>
  *   <li><b>JWT工具类</b>: 处令牌的生成和验证</li>
  * </ul>
+ *
+ * <h3>业务价值和集成收益</h3>
+ * <p>
+ * Apple Sign In集成为企业带来多方面的业务价值：
+ * </p>
+ * <ul>
+ *   <li><b>用户体验提升</b>:
+ *       <ul>
+ *         <li>一键登录，简化注册流程</li>
+ *         <li>无需记忆额外密码</li>
+ *         <li>跨设备同步登录状态</li>
+ *         <li>苹果生态无缝体验</li>
+ *       </ul>
+ *   </li>
+ *   <li><b>品牌信任度</b>:
+ *       <ul>
+ *         <li>借助Apple品牌信誉</li>
+ *         <li>提升用户对平台的信任</li>
+ *         <li>展示对用户隐私的重视</li>
+ *         <li>符合现代安全标准</li>
+ *       </ul>
+ *   </li>
+ *   <li><b>运营效率提升</b>:
+ *       <ul>
+ *         <li>减少密码重置请求</li>
+ *         <li>降低客服支持成本</li>
+ *         <li>提高用户留存率</li>
+ *         <li>简化账户管理流程</li>
+ *       </ul>
+ *   </li>
+ *   <li><b>技术架构优化</b>:
+ *       <ul>
+ *         <li>标准化认证流程</li>
+ *         <li>减少自研认证系统的维护成本</li>
+ *         <li>提高系统安全性</li>
+ *         <li>支持未来认证方式的扩展</li>
+ *       </ul>
+ *   </li>
+ *   <li><b>合规与安全</b>:
+ *       <ul>
+ *         <li>符合苹果的技术规范要求</li>
+ *         <li>遵循行业最佳安全实践</li>
+ *         <li>降低安全风险</li>
+ *         <li>通过安全审计</li>
+ *       </ul>
+ *   </li>
+ * </ul>
+ *
+ * <h3>集成注意事项</h3>
+ * <ul>
+ *   <li><b>域名配置</b>: 确保在Apple Developer Console中正确配置回调域名</li>
+ *   <li><b>Bundle ID匹配</b>: clientId必须与实际应用的Bundle ID完全一致</li>
+ *   <li><b>沙盒环境测试</b>: 先在沙盒环境测试完整流程</li>
+ *   <li><b>错误处理</b>: 实现完善的错误处理和用户反馈机制</li>
+ *   <li><b>性能监控</b>: 监控认证API的性能和成功率</li>
+ *   <li><b>用户引导</b>: 为首次使用Apple Sign In的用户提供清晰指引</li>
+ * </ul>
+ */
+@ConfigurationProperties(prefix = "apple.signin")
+/**
+ * Bean配置说明
+ * <p>
+ * 该配置类通过以下注解实现Bean的自动配置和管理：
+ * </p>
+ * <ul>
+ *   <li><b>@ConfigurationProperties</b>:
+ *       <ul>
+ *         <li>prefix = "apple.signin": 指定配置属性的前缀</li>
+ *         <li>实现配置属性到Bean属性的自动绑定</li>
+ *         <li>支持类型转换和验证</li>
+ *         <li>支持嵌套配置结构</li>
+ *       </ul>
+ *   </li>
+ *   <li><b>@Component</b>:
+ *       <ul>
+ *         <li>将类注册为Spring Bean</li>
+ *         <li>支持依赖注入</li>
+ *         <li>由Spring容器管理生命周期</li>
+ *         <li>支持AOP功能</li>
+ *       </ul>
+ *   </li>
+ *   <li><b>@Data</b> (Lombok):
+ *       <ul>
+ *         <li>自动生成getter、setter、toString等方法</li>
+ *         <li>简化JavaBean开发</li>
+ *         <li>减少样板代码</li>
+ *         <li>支持链式调用</li>
+ *       </ul>
+ *   </li>
+ * </ul>
+ * <p>
+ * 配置特性：
+ * </p>
+ * <ul>
+ *   <li><b>默认值处理</b>: 为issuer和jwksUrl提供默认值，简化配置</li>
+ *   <li><b>类型安全</b>: 使用Java类型定义配置属性，避免类型转换错误</li>
+ *   <li><b>环境隔离</b>: 支持不同环境（dev/test/prod）使用不同配置</li>
+ *   <li><b>配置验证</b>: 可以通过@Validated注解实现配置验证</li>
+ * </ul>
+ * <p>
+ * 使用示例：
+ * </p>
+ * <pre>{@code
+ * @Autowired
+ * private AppleSignInConfig appleSignInConfig;
+ *
+ * // 获取配置值
+ * String clientId = appleSignInConfig.getClientId();
+ * String tokenSecret = appleSignInConfig.getTokenSecret();
+ * long tokenTtl = appleSignInConfig.getTokenTtlSeconds();
+ * }</pre>
  */
 @ConfigurationProperties(prefix = "apple.signin")
 @Component
