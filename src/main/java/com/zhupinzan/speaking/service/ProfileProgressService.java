@@ -131,10 +131,11 @@ public class ProfileProgressService {
             newStreak = 1;
         } else {
             LocalDate last = current.getLastActiveDate();
+            int currentStreak = current.getStreakDays() == null ? 0 : current.getStreakDays();
             if (last.isEqual(today)) {
-                newStreak = current.getStreakDays();
+                newStreak = currentStreak;
             } else if (last.plusDays(1).isEqual(today)) {
-                newStreak = current.getStreakDays() + 1;
+                newStreak = currentStreak + 1;
             } else {
                 newStreak = 1;
             }
