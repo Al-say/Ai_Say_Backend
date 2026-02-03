@@ -81,6 +81,12 @@ jobs:
             -e BAIDU_SECRET_KEY='${{ secrets.BAIDU_SECRET_KEY }}' \
             -e SCENE_PROMPTS_EXAM_PREP='Describe a historical building you visited.;Do you think AI will replace teachers?' \
             -e SCENE_PROMPTS_CAREER_GROWTH='Tell me about a time you handled a conflict.;How would you ask your boss for a deadline extension?' \
+            -e STORAGE_TYPE='local' \
+            -e STORAGE_LOCAL_ROOT='/app/uploads' \
+            -e STORAGE_S3_ENDPOINT='http://localhost' \
+            -e STORAGE_S3_ACCESS_KEY='dummy' \
+            -e STORAGE_S3_SECRET_KEY='dummy' \
+            -e STORAGE_S3_BUCKET='dummy' \
             ${{ secrets.IMAGE_NAME }}:latest
           # === 关键修改点结束 ===
             
