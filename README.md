@@ -1,6 +1,6 @@
 # AI自然语言评估应用后端
 
-<!-- Auto-deploy trigger: 2026-02-03 -->
+<!-- Auto-deploy trigger: 2026-02-03 v2 -->
 基于Spring Boot 3.2.0 + Java 21的AI英语口语练习应用后端服务。
 
 ## 功能特性
