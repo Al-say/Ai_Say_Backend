@@ -73,6 +73,7 @@ jobs:
             -e DEEPSEEK_API_KEY='${{ secrets.DEEPSEEK_API_KEY }}' \
             -e DEEPSEEK_API_URL='https://api.deepseek.com' \
             -e DEEPSEEK_API_MODEL='deepseek-chat' \
+            -e FFMPEG_PATH='/usr/bin/ffmpeg' \
             ${{ secrets.IMAGE_NAME }}:latest
           # === 关键修改点结束 ===
             
