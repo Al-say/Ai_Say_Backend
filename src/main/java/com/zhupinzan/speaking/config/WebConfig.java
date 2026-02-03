@@ -20,25 +20,6 @@ import java.util.List;
 public class WebConfig implements WebMvcConfigurer {
 
     /**
-     * 添加静态资源处理器。
-     * <p>
-     * 这个方法配置了一个资源处理器，它将URL路径 {@code /uploads/**} 映射到
-     * 文件系统中的 {@code uploads/} 目录。这使得客户端可以通过URL
-     * (例如, http://localhost:8082/uploads/audio/somefile.wav)
-     * 直接访问存储在服务器上 {@code uploads} 目录下的文件。
-     * 这对于提供音频文件的访问非常有用。
-     *
-     * @param registry 资源处理器注册表
-     */
-    @Override
-    public void addResourceHandlers(@NonNull ResourceHandlerRegistry registry) {
-        // 将URL模式 "/uploads/**" 映射到项目根目录下的 "uploads/" 文件夹。
-        // "file:" 前缀表示这是一个文件系统路径。
-        registry.addResourceHandler("/uploads/**")
-                .addResourceLocations("file:uploads/");
-    }
-
-    /**
      * 添加自定义的方法参数解析器。
      * <p>
      * 这个方法将我们的 {@link CurrentUserArgumentResolver} 注册到Spring MVC中。

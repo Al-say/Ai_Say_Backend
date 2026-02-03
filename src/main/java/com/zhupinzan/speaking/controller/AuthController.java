@@ -5,6 +5,8 @@ import com.zhupinzan.speaking.service.AuthUserService;
 import com.zhupinzan.speaking.service.AppleSignInService;
 import com.zhupinzan.speaking.util.CurrentUser;
 import com.zhupinzan.speaking.util.CurrentUserInfo;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -51,6 +53,8 @@ import org.springframework.web.server.ResponseStatusException;
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
+
+    private static final Logger logger = LoggerFactory.getLogger(AuthController.class);
 
     /**
      * Apple ID登录服务
@@ -163,8 +167,9 @@ public class AuthController {
         } catch (IllegalArgumentException e) {
             // 参数错误：令牌格式无效或必需字段缺失
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             // 认证失败：令牌验证失败或其他认证相关错误
+            logger.error("Apple 登录失败", e);
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Apple 登录失败");
         }
     }
