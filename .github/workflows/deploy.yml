@@ -1,4 +1,4 @@
-name: Production Build and Deploy
+name: Docker Build and Deploy
 
 on:
   push:
@@ -19,65 +19,57 @@ jobs:
         distribution: 'temurin'
         cache: 'maven'
 
+    # 1. Maven 构建 (只打包，不传文件)
     - name: Build with Maven
-      # 关键修改 1：构建后立即删除 .original 文件，确保目录下只有一个 jar
-      run: |
-        mvn clean package -DskipTests
-        rm -f target/*.jar.original
+      run: mvn clean package -DskipTests
 
-    - name: Transfer JAR to Server
-      uses: appleboy/scp-action@master
+    # 2. 登录阿里云仓库
+    - name: Login to Docker Registry
+      uses: docker/login-action@v3
       with:
-        host: ${{ secrets.HOST }}
-        username: ${{ secrets.USERNAME }}
-        key: ${{ secrets.KEY }}
-        source: "target/*.jar"
-        target: "/home/${{ secrets.USERNAME }}/github_deploy"
-        strip_components: 1
+        registry: ${{ secrets.DOCKER_REGISTRY }}
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
 
-    - name: Restart Application
+    # 3. 构建 Docker 镜像并推送到阿里云
+    - name: Build and Push Image
+      run: |
+        # 使用当前 commit hash 作为版本号，同时也打一个 latest 标签
+        docker build -t ${{ secrets.IMAGE_NAME }}:${{ github.sha }} .
+        docker build -t ${{ secrets.IMAGE_NAME }}:latest .
+        docker push ${{ secrets.IMAGE_NAME }}:${{ github.sha }}
+        docker push ${{ secrets.IMAGE_NAME }}:latest
+
+    # 4. 远程指挥火山服务器干活
+    - name: Deploy to Volcano Server
       uses: appleboy/ssh-action@master
       with:
         host: ${{ secrets.HOST }}
         username: ${{ secrets.USERNAME }}
         key: ${{ secrets.KEY }}
-        # 关键修改 2：删除了无效的 script_stop 参数
-        # 关键修改 3：在 script 中加入 set -e，任何命令报错立即停止
         script: |
-          set -e
+          # 停止脚本若报错不退出 (|| true)
+          set +e
           
-          APP_NAME="app.jar"
-          DEPLOY_DIR="/home/${{ secrets.USERNAME }}/github_deploy"
+          echo "1. Logging into Registry..."
+          docker login --username=${{ secrets.DOCKER_USERNAME }} --password=${{ secrets.DOCKER_PASSWORD }} ${{ secrets.DOCKER_REGISTRY }}
           
-          cd $DEPLOY_DIR
+          echo "2. Pulling latest image..."
+          docker pull ${{ secrets.IMAGE_NAME }}:latest
           
-          # === 修复点开始 ===
-          # 1. 先查找旧的 Java 进程（只匹配 java -jar app.jar，避免误杀自己）
-          # 使用 grep -v grep 排除掉 grep 命令本身
-          PID=$(ps -ef | grep "java -jar $APP_NAME" | grep -v grep | awk '{print $2}')
+          echo "3. Removing old container..."
+          docker stop ai-backend || true
+          docker rm ai-backend || true
           
-          if [ -n "$PID" ]; then
-            echo "Stopping existing application (PID: $PID)..."
-            kill -9 $PID
-          else
-            echo "No running application found."
-          fi
-          # === 修复点结束 ===
+          echo "4. Starting new container..."
+          # --net=host 模式让容器直接使用宿主机的网络和端口，避免端口映射麻烦
+          docker run -d \
+            --name ai-backend \
+            --net=host \
+            --restart always \
+            ${{ secrets.IMAGE_NAME }}:latest
+            
+          echo "5. Cleaning up..."
+          docker image prune -f
           
-          # 2. 清理旧文件并重命名新文件
-          rm -f $APP_NAME
-          mv *.jar $APP_NAME
-          
-          echo "Starting new application..."
-          nohup java -jar $APP_NAME > app.log 2>&1 &
-          
-          # 3. 健康检查
-          sleep 5
-          # 同样使用精确匹配来检查是否启动成功
-          if ps -ef | grep "java -jar $APP_NAME" | grep -v grep > /dev/null; then
-            echo "✅ Deployment Successful! Application is running."
-          else
-            echo "❌ Deployment Failed! Application process died."
-            tail -n 20 app.log
-            exit 1
-          fi
+          echo "✅ Deployment Complete!"
