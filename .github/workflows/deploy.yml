@@ -1,43 +1,93 @@
-name: Deploy to Server
+name: Production Build and Deploy
 
+# 触发机制：仅当代码推送到 main 分支时触发
 on:
   push:
-    branches: [ "master" ]
+    branches: [ "main" ]
 
 jobs:
-  build-and-deploy:
+  deploy:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+    # 1. 拉取代码
+    - name: Checkout code
+      uses: actions/checkout@v4
 
-    # 步骤1：在 GitHub 端构建 Java 应用
-    - name: Set up JDK 21
+    # 2. 设置 JDK 环境 (Spring Boot 3.x 需要 JDK 17)
+    - name: Set up JDK 17
       uses: actions/setup-java@v4
       with:
-        java-version: '21'
+        java-version: '17'
         distribution: 'temurin'
+        cache: 'maven' # 启用缓存，加速后续构建
 
+    # 3. 编译打包 (跳过单元测试以加速部署，但在严格的CI中建议保留)
     - name: Build with Maven
       run: mvn clean package -DskipTests
 
-    # 步骤2：将构建好的 jar 包传送到服务器 (使用 scp)
-    - name: Copy file via SCP
-      uses: appleboy/scp-action@v0.1.7
+    # 4. 传输文件 (使用 SCP 将 jar 包发送到服务器)
+    - name: Transfer JAR to Server
+      uses: appleboy/scp-action@master
       with:
         host: ${{ secrets.HOST }}
         username: ${{ secrets.USERNAME }}
         key: ${{ secrets.KEY }}
+        # 你的 jar 包构建路径，通常在 target 目录下
         source: "target/*.jar"
-        target: "/home/your_project_dir"
+        # 服务器上的目标路径 (会自动创建)
+        target: "/home/${{ secrets.USERNAME }}/github_deploy"
+        # 移除路径中的 target 目录层级，直接把 jar 放进 github_deploy
+        strip_components: 1
 
-    # 步骤3：登录服务器重启服务
-    - name: Restart Service
-      uses: appleboy/ssh-action@v1.0.3
+    # 5. 远程执行 (登录服务器，重启应用)
+    - name: Restart Application
+      uses: appleboy/ssh-action@master
       with:
         host: ${{ secrets.HOST }}
         username: ${{ secrets.USERNAME }}
         key: ${{ secrets.KEY }}
+        # script_stop: true 表示如果脚本中任何一行报错，立即停止
+        script_stop: true
         script: |
-          # 停止旧进程，启动新进程的脚本
-          systemctl restart my-java-app
+          # 定义应用名称和目录
+          APP_NAME="app.jar"
+          DEPLOY_DIR="/home/${{ secrets.USERNAME }}/github_deploy"
+          
+          # 进入部署目录
+          cd $DEPLOY_DIR
+          
+          # 找到最新上传的 jar 包 (应对版本号变化) 并重命名为 app.jar 以便管理
+          # 这一步体现了"标准化"思维，让脚本不再依赖具体的版本号
+          mv *.jar $APP_NAME
+          
+          # === 进程管理 (核心逻辑) ===
+          
+          # 1. 查找并杀死旧进程
+          # 注意：这里使用 pgrep 匹配 jar 包名称，避免误杀其他 Java 进程
+          PID=$(pgrep -f $APP_NAME)
+          if [ -n "$PID" ]; then
+            echo "Stopping existing application (PID: $PID)..."
+            kill -9 $PID
+          else
+            echo "No running application found."
+          fi
+          
+          # 2. 启动新进程
+          # nohup: 后台运行
+          # > app.log 2>&1: 将标准输出和错误输出都写入日志文件
+          # &: 让命令在后台执行，不阻塞 GitHub Actions
+          echo "Starting new application..."
+          nohup java -jar $APP_NAME > app.log 2>&1 &
+          
+          # 3. 健康检查 (可选但推荐)
+          # 等待几秒后检查进程是否存活
+          sleep 5
+          if pgrep -f $APP_NAME > /dev/null; then
+            echo "✅ Deployment Successful! Application is running."
+          else
+            echo "❌ Deployment Failed! Application process died."
+            # 输出日志尾部以供排错
+            tail -n 20 app.log
+            exit 1
+          fi
