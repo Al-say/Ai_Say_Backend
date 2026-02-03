@@ -68,21 +68,28 @@ jobs:
             --net=host \
             --restart always \
             -e SERVER_PORT='2580' \
+            # --- 数据库配置 ---
             -e SPRING_DATASOURCE_URL='${{ secrets.DB_URL }}' \
             -e SPRING_DATASOURCE_USERNAME='${{ secrets.DB_USERNAME }}' \
             -e SPRING_DATASOURCE_PASSWORD='${{ secrets.DB_PASSWORD }}' \
+            # --- AI 模型配置 ---
             -e DEEPSEEK_API_KEY='${{ secrets.DEEPSEEK_API_KEY }}' \
             -e DEEPSEEK_API_URL='https://api.deepseek.com' \
             -e DEEPSEEK_API_MODEL='deepseek-chat' \
+            # --- 百度语音配置 (必须填) ---
+            -e BAIDU_API_KEY='${{ secrets.BAIDU_API_KEY }}' \
+            -e BAIDU_SECRET_KEY='${{ secrets.BAIDU_SECRET_KEY }}' \
+            # --- 工具路径 ---
             -e FFMPEG_PATH='/usr/bin/ffmpeg' \
             -e FFPROBE_PATH='/usr/bin/ffprobe' \
             -e AUDIO_TEMP_DIR='/tmp' \
-            -e BAIDU_API_KEY='${{ secrets.BAIDU_API_KEY }}' \
-            -e BAIDU_SECRET_KEY='${{ secrets.BAIDU_SECRET_KEY }}' \
+            # --- 业务提示词 ---
             -e SCENE_PROMPTS_EXAM_PREP='You are an English IELTS examiner. Please correct my grammar mistakes.' \
             -e SCENE_PROMPTS_CAREER_GROWTH='You are a senior business partner. Help me practice interview questions.' \
+            # --- 存储配置 (关键点) ---
             -e STORAGE_TYPE='local' \
             -e STORAGE_LOCAL_ROOT='/app/uploads' \
+            # --- S3 假配置 (为了防止启动报错) ---
             -e STORAGE_S3_ENDPOINT='http://localhost' \
             -e STORAGE_S3_ACCESS_KEY='dummy' \
             -e STORAGE_S3_SECRET_KEY='dummy' \
