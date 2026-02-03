@@ -113,8 +113,6 @@ import java.util.List;
  */
 @Service
 public class AudioConversionService {
-@Service
-public class AudioConversionService {
 
     /**
      * 将 m4a 文件转换为 16kHz, 16bit, 单声道 wav 格式

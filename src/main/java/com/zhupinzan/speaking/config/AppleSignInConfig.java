@@ -214,62 +214,6 @@ import org.springframework.stereotype.Component;
  * </ul>
  */
 @ConfigurationProperties(prefix = "apple.signin")
-/**
- * Bean配置说明
- * <p>
- * 该配置类通过以下注解实现Bean的自动配置和管理：
- * </p>
- * <ul>
- *   <li><b>@ConfigurationProperties</b>:
- *       <ul>
- *         <li>prefix = "apple.signin": 指定配置属性的前缀</li>
- *         <li>实现配置属性到Bean属性的自动绑定</li>
- *         <li>支持类型转换和验证</li>
- *         <li>支持嵌套配置结构</li>
- *       </ul>
- *   </li>
- *   <li><b>@Component</b>:
- *       <ul>
- *         <li>将类注册为Spring Bean</li>
- *         <li>支持依赖注入</li>
- *         <li>由Spring容器管理生命周期</li>
- *         <li>支持AOP功能</li>
- *       </ul>
- *   </li>
- *   <li><b>@Data</b> (Lombok):
- *       <ul>
- *         <li>自动生成getter、setter、toString等方法</li>
- *         <li>简化JavaBean开发</li>
- *         <li>减少样板代码</li>
- *         <li>支持链式调用</li>
- *       </ul>
- *   </li>
- * </ul>
- * <p>
- * 配置特性：
- * </p>
- * <ul>
- *   <li><b>默认值处理</b>: 为issuer和jwksUrl提供默认值，简化配置</li>
- *   <li><b>类型安全</b>: 使用Java类型定义配置属性，避免类型转换错误</li>
- *   <li><b>环境隔离</b>: 支持不同环境（dev/test/prod）使用不同配置</li>
- *   <li><b>配置验证</b>: 可以通过@Validated注解实现配置验证</li>
- * </ul>
- * <p>
- * 使用示例：
- * </p>
- * <pre>{@code
- * @Autowired
- * private AppleSignInConfig appleSignInConfig;
- *
- * // 获取配置值
- * String clientId = appleSignInConfig.getClientId();
- * String tokenSecret = appleSignInConfig.getTokenSecret();
- * long tokenTtl = appleSignInConfig.getTokenTtlSeconds();
- * }</pre>
- */
-@ConfigurationProperties(prefix = "apple.signin")
-@Component
-@Data
 public class AppleSignInConfig {
     /**
      * Apple登录客户端ID

@@ -116,46 +116,6 @@ import lombok.Data;
  * }</pre>
  */
 @ConfigurationProperties(prefix = "baidu")
-/**
- * Bean配置说明
- * <p>
- * 该配置类通过以下注解实现Bean的自动配置和管理：
- * </p>
- * <ul>
- *   <li><b>@ConfigurationProperties</b>:
- *       <ul>
- *         <li>prefix = "baidu": 指定配置属性的前缀</li>
- *         <li>实现配置属性到Bean属性的自动绑定</li>
- *         <li>支持类型转换和验证</li>
- *       </ul>
- *   </li>
- *   <li><b>@Component</b>:
- *       <ul>
- *         <li>将类注册为Spring Bean</li>
- *         <li>支持依赖注入</li>
- *         <li>由Spring容器管理生命周期</li>
- *       </ul>
- *   </li>
- *   <li><b>@Data</b> (Lombok):
- *       <ul>
- *         <li>自动生成getter、setter、toString等方法</li>
- *         <li>简化JavaBean开发</li>
- *         <li>减少样板代码</li>
- *       </ul>
- *   </li>
- * </ul>
- * <p>
- * 配置加载流程：
- * 1. Spring Boot启动时扫描@ConfigurationProperties注解
- * 2. 根据prefix="baidu"读取配置文件中的baidu.*相关属性
- * 3. 将配置值自动绑定到对应的Bean属性
- * 4. 将Bean注册到Spring容器中
- * 5. 其他服务可以通过@Autowired注入使用
- * </p>
- */
-@ConfigurationProperties(prefix = "baidu")
-@Component
-@Data
 public class BaiduConfig {
     /**
      * 百度AI应用ID
@@ -196,4 +156,12 @@ public class BaiduConfig {
      * 注意：Secret密钥比API Key更加敏感，应严格保密。
      */
     private String secretKey;
+
+    public String getApiKey() {
+        return apiKey;
+    }
+
+    public String getSecretKey() {
+        return secretKey;
+    }
 }
