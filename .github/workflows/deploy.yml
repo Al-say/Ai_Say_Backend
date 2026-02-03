@@ -76,6 +76,7 @@ jobs:
             -e FFMPEG_PATH='/usr/bin/ffmpeg' \
             -e SERVER_PORT='2580' \
             -e AUDIO_TEMP_DIR='/tmp' \
+            -e FFPROBE_PATH='/usr/bin/ffprobe' \
             ${{ secrets.IMAGE_NAME }}:latest
           # === 关键修改点结束 ===
             
