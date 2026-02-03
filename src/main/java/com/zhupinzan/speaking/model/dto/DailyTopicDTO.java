@@ -1,6 +1,8 @@
 package com.zhupinzan.speaking.model.dto;
 
+import com.zhupinzan.speaking.model.Level;
 import com.zhupinzan.speaking.model.UserPersona;
+import static com.zhupinzan.speaking.model.Level.*;
 
 import java.time.LocalDate;
 import java.util.Map;
@@ -386,14 +388,10 @@ public record DailyTopicDTO(
      */
     public String getPersonaDisplayName() {
         switch (persona) {
-            case BEGINNER:
-                return "初学者";
-            case INTERMEDIATE:
-                return "中级";
-            case ADVANCED:
-                return "高级";
-            case EXPERT:
-                return "专家";
+            case EXAM_PREP:
+                return "备考党";
+            case CAREER_GROWTH:
+                return "职场人";
             default:
                 return "未知";
         }
@@ -449,14 +447,10 @@ public record DailyTopicDTO(
      */
     private static int getDifficultyByPersona(UserPersona persona) {
         switch (persona) {
-            case BEGINNER:
-                return 1;
-            case INTERMEDIATE:
-                return 2;
-            case ADVANCED:
-                return 4;
-            case EXPERT:
-                return 5;
+            case EXAM_PREP:
+                return 3;
+            case CAREER_GROWTH:
+                return 3;
             default:
                 return 3;
         }

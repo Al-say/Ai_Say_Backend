@@ -190,6 +190,20 @@ public class AuthTokenFilter extends OncePerRequestFilter {
                 return;
             }
 
+            // 验证 issuer
+            var issuer = claims.getIssuer();
+            if (!config.getJwtIssuer().equals(issuer)) {
+                writeUnauthorized(response, "Token issuer 无效");
+                return;
+            }
+
+            // 验证 audience
+            var audience = claims.getAudience();
+            if (audience == null || !audience.contains(config.getJwtAudience())) {
+                writeUnauthorized(response, "Token audience 无效");
+                return;
+            }
+
             // 步骤 5: 将用户信息存入请求属性
             // 认证成功后，将用户信息放入请求属性，供后续处理程序使用
             // sub字段是用户的唯一标识符

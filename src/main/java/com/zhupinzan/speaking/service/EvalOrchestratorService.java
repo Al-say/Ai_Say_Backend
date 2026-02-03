@@ -43,8 +43,6 @@ import org.springframework.web.multipart.MultipartFile;
 @Slf4j
 public class EvalOrchestratorService {
 
-    private static final long MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
-
     // ========== 系统核心组件依赖注入 ==========
 
     /**
@@ -176,11 +174,6 @@ public class EvalOrchestratorService {
         log.debug("设备 {} 活跃状态已更新", deviceId);
 
         // 【步骤2】音频预处理流水线 - 格式标准化
-        // [安全加固] 增加文件大小检查，防止内存溢出攻击 (Denial of Service)
-        if (file.isEmpty() || file.getSize() > MAX_FILE_SIZE_BYTES) {
-            log.error("文件为空或大小超过限制 ({} bytes)，上传被拒绝", MAX_FILE_SIZE_BYTES);
-            throw new IllegalArgumentException("文件为空或大小超过10MB");
-        }
         // 将上传的 MultipartFile 转换为字节数组，并进行格式转换
         // 统一输出为 16kHz 采样率的单声道 WAV 格式，满足后续处理要求
         byte[] raw;

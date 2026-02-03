@@ -214,6 +214,8 @@ import org.springframework.stereotype.Component;
  * </ul>
  */
 @ConfigurationProperties(prefix = "apple.signin")
+@Component
+@Data
 public class AppleSignInConfig {
     /**
      * Apple登录客户端ID
@@ -258,6 +260,17 @@ public class AppleSignInConfig {
      * </p>
      */
     private String tokenSecret;
+
+    /**
+     * 本地JWT令牌的签发者
+     */
+    private String jwtIssuer = "com.zhupinzan.speaking";
+
+    /**
+     * 本地JWT令牌的受众
+     */
+    private String jwtAudience;
+
 
     /**
      * 本地令牌的生存时间（秒）

@@ -171,6 +171,10 @@ public class AuthController {
             // 认证失败：令牌验证失败或其他认证相关错误
             logger.error("Apple 登录失败", e);
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Apple 登录失败");
+        } catch (Exception e) {
+            // 其他异常
+            logger.error("Apple 登录异常", e);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "服务器内部错误");
         }
     }
 

@@ -106,9 +106,9 @@ import java.time.ZoneOffset;
  * - 建议添加性能监控，关注数据库查询效率
  * </p>
  */
-@Slf4j
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ProfileProgressService {
 
     private final UserProgressRepository userProgressRepository;

@@ -225,10 +225,17 @@ public enum ErrorCode {
     FORBIDDEN("禁止访问"),
     VALIDATION_ERROR("数据校验失败"),
     CONFLICT("数据冲突/重复"),
+    INTERNAL_SERVER_ERROR("服务器内部错误"),
+    TOO_MANY_REQUESTS("请求过于频繁"),
+    BAD_GATEWAY("网关错误"),
+    SERVICE_UNAVAILABLE("服务不可用"),
+    GATEWAY_TIMEOUT("网关超时"),
     INTERNAL_ERROR("服务器内部错误"),
     AI_SERVICE_ERROR("AI 服务调用失败"), // 针对 DeepSeek 场景预留
     STORAGE_ERROR("文件存储服务不可用"),
-    AUDIO_TRANSCODE_ERROR("音频转码失败");
+    AUDIO_TRANSCODE_ERROR("音频转码失败"),
+    EVALUATION_FAILED("评估失败"),
+    PAYMENT_ERROR("支付错误");
 
     private final String description;
 

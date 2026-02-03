@@ -1,6 +1,7 @@
 package com.zhupinzan.speaking.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.stereotype.Component;
 
 import lombok.Data;
@@ -115,7 +116,9 @@ import lombok.Data;
  * }
  * }</pre>
  */
+@Configuration
 @ConfigurationProperties(prefix = "baidu")
+@Component
 public class BaiduConfig {
     /**
      * 百度AI应用ID
@@ -156,6 +159,10 @@ public class BaiduConfig {
      * 注意：Secret密钥比API Key更加敏感，应严格保密。
      */
     private String secretKey;
+
+    public String getAppId() {
+        return appId;
+    }
 
     public String getApiKey() {
         return apiKey;

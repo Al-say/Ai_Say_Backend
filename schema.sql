@@ -5,21 +5,21 @@
 
 -- 1. 设备表 (Device Identity)
 CREATE TABLE IF NOT EXISTS device (
-    id BIGSERIAL PRIMARY KEY,
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
     device_id VARCHAR(64) NOT NULL UNIQUE, -- 唯一索引，支持 ON CONFLICT
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    last_seen_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    meta JSONB NOT NULL DEFAULT '{}'::jsonb
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    meta TEXT NOT NULL DEFAULT '{}'
 );
 CREATE INDEX IF NOT EXISTS idx_device_last_seen ON device(last_seen_at DESC);
 
 -- 2. 评估记录表 (Core Fact Table)
 CREATE TABLE IF NOT EXISTS assessment_record (
-    id BIGSERIAL PRIMARY KEY,
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
 
     device_id VARCHAR(64) NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, -- ✅ 补齐
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- ✅ 补齐
 
     mode VARCHAR(16) NOT NULL,
     persona VARCHAR(32) NOT NULL,
@@ -34,8 +34,8 @@ CREATE TABLE IF NOT EXISTS assessment_record (
     relevance NUMERIC(5,2),
 
     -- 扩展字段
-    metrics JSONB NOT NULL DEFAULT '{}'::jsonb,
-    feedback JSONB NOT NULL DEFAULT '{}'::jsonb,
+    metrics TEXT NOT NULL DEFAULT '{}',
+    feedback TEXT NOT NULL DEFAULT '{}',
 
     audio_url TEXT,
     transcript TEXT,
@@ -61,7 +61,7 @@ CREATE INDEX IF NOT EXISTS idx_ar_device_persona_time_cover
 
 -- 3. 用户账号表 (Apple 登录)
 CREATE TABLE IF NOT EXISTS user_account (
-    id BIGSERIAL PRIMARY KEY,
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
     apple_sub VARCHAR(128) NOT NULL UNIQUE,
     email VARCHAR(256),
     email_verified BOOLEAN,
@@ -70,8 +70,8 @@ CREATE TABLE IF NOT EXISTS user_account (
     phone VARCHAR(32),
     bio VARCHAR(512),
     device_id VARCHAR(64),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    last_login_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_login_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_user_account_device ON user_account(device_id);

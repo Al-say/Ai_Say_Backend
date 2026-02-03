@@ -1,5 +1,6 @@
 package com.zhupinzan.speaking.model.dto;
 
+import static com.zhupinzan.speaking.model.ErrorCode.*;
 import com.zhupinzan.speaking.model.ErrorCode;
 
 import java.time.OffsetDateTime;
