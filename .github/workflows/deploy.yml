@@ -48,7 +48,6 @@ jobs:
         username: ${{ secrets.USERNAME }}
         key: ${{ secrets.KEY }}
         script: |
-          # 停止脚本若报错不退出 (|| true)
           set +e
           
           echo "1. Logging into Registry..."
@@ -61,13 +60,19 @@ jobs:
           docker stop ai-backend || true
           docker rm ai-backend || true
           
-          echo "4. Starting new container..."
-          # --net=host 模式让容器直接使用宿主机的网络和端口，避免端口映射麻烦
+          echo "4. Starting new container with ENV VARS..."
+          # === 关键修改点开始 ===
+          # 注意：这里添加了 -e 参数来注入环境变量
           docker run -d \
             --name ai-backend \
             --net=host \
             --restart always \
+            -e SPRING_DATASOURCE_URL='${{ secrets.DB_URL }}' \
+            -e SPRING_DATASOURCE_USERNAME='${{ secrets.DB_USERNAME }}' \
+            -e SPRING_DATASOURCE_PASSWORD='${{ secrets.DB_PASSWORD }}' \
+            -e DEEPSEEK_API_KEY='${{ secrets.DEEPSEEK_API_KEY }}' \
             ${{ secrets.IMAGE_NAME }}:latest
+          # === 关键修改点结束 ===
             
           echo "5. Cleaning up..."
           docker image prune -f
