@@ -44,38 +44,37 @@ jobs:
         # 关键修改 2：删除了无效的 script_stop 参数
         # 关键修改 3：在 script 中加入 set -e，任何命令报错立即停止
         script: |
-          set -e  # 开启严格模式，任何命令失败则脚本终止
+          set -e
           
           APP_NAME="app.jar"
           DEPLOY_DIR="/home/${{ secrets.USERNAME }}/github_deploy"
           
           cd $DEPLOY_DIR
           
-          # 强制清理旧的 app.jar，防止 mv 冲突
-          rm -f $APP_NAME
+          # === 修复点开始 ===
+          # 1. 先查找旧的 Java 进程（只匹配 java -jar app.jar，避免误杀自己）
+          # 使用 grep -v grep 排除掉 grep 命令本身
+          PID=$(ps -ef | grep "java -jar $APP_NAME" | grep -v grep | awk '{print $2}')
           
-          # 现在目录下只有一个 jar，mv 绝对安全
-          mv *.jar $APP_NAME
-          
-          # === 进程管理 ===
-          
-          # 查找并杀死旧进程
-          # 使用 || true 确保即使没找到进程，脚本也不会因此报错退出
-          PID=$(pgrep -f $APP_NAME) || true
           if [ -n "$PID" ]; then
             echo "Stopping existing application (PID: $PID)..."
             kill -9 $PID
           else
             echo "No running application found."
           fi
+          # === 修复点结束 ===
+          
+          # 2. 清理旧文件并重命名新文件
+          rm -f $APP_NAME
+          mv *.jar $APP_NAME
           
           echo "Starting new application..."
-          # 启动新进程
           nohup java -jar $APP_NAME > app.log 2>&1 &
           
-          # === 健康检查 ===
+          # 3. 健康检查
           sleep 5
-          if pgrep -f $APP_NAME > /dev/null; then
+          # 同样使用精确匹配来检查是否启动成功
+          if ps -ef | grep "java -jar $APP_NAME" | grep -v grep > /dev/null; then
             echo "✅ Deployment Successful! Application is running."
           else
             echo "❌ Deployment Failed! Application process died."
