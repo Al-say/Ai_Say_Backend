@@ -7,6 +7,9 @@ import lombok.Data;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
+import com.vladmihalcea.hibernate.type.json.JsonBinaryType;
+import org.hibernate.annotations.Type;
+
 import java.time.OffsetDateTime;
 import java.util.HashMap;
 import java.util.Map;
@@ -172,6 +175,7 @@ public class AssessmentRecord {
      *   - 支持评估模型的版本控制和扩展
      * 【设计优势】JSONB支持索引查询，便于数据分析和统计
      */
+    @Type(JsonBinaryType.class)
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb", nullable = false)
     private Map<String, Object> metrics = new HashMap<>();
@@ -188,6 +192,7 @@ public class AssessmentRecord {
      *   - 支持多语言反馈内容
      * 【设计考虑】使用get/set方法返回可修改副本，防止外部修改影响数据一致性
      */
+    @Type(JsonBinaryType.class)
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb", nullable = false)
     private Map<String, Object> feedback = new HashMap<>();

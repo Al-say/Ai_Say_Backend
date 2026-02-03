@@ -116,9 +116,9 @@ import lombok.Data;
  * }
  * }</pre>
  */
-@Configuration
 @ConfigurationProperties(prefix = "baidu")
 @Component
+@Data
 public class BaiduConfig {
     /**
      * 百度AI应用ID

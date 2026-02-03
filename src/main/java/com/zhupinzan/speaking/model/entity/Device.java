@@ -5,6 +5,9 @@ import lombok.Data;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
+import com.vladmihalcea.hibernate.type.json.JsonBinaryType;
+import org.hibernate.annotations.Type;
+
 import java.time.OffsetDateTime;
 import java.util.HashMap;
 import java.util.Map;
@@ -90,6 +93,7 @@ public class Device {
      * 【设计优势】JSONB支持索引查询，便于设备分析和统计
      * 【扩展性】随时可以添加新的设备属性而不需要修改表结构
      */
+    @Type(JsonBinaryType.class)
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb", nullable = false)
     private Map<String, Object> meta = new HashMap<>();
