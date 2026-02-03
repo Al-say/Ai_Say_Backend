@@ -75,6 +75,7 @@ jobs:
             -e DEEPSEEK_API_MODEL='deepseek-chat' \
             -e FFMPEG_PATH='/usr/bin/ffmpeg' \
             -e SERVER_PORT='2580' \
+            -e AUDIO_TEMP_DIR='/tmp' \
             ${{ secrets.IMAGE_NAME }}:latest
           # === 关键修改点结束 ===
             
