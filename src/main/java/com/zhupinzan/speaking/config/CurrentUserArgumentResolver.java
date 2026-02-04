@@ -187,10 +187,19 @@ public class CurrentUserArgumentResolver implements HandlerMethodArgumentResolve
             // 在极少数情况下（例如，非HTTP请求环境），返回一个空的UserInfo对象
             return new CurrentUserInfo(null, null);
         }
-        // 使用AuthContext工具类从请求属性中提取用户信息，并创建一个新的CurrentUserInfo实例
-        return new CurrentUserInfo(
-            AuthContext.getUserId(request),
-            AuthContext.getAppleSub(request)
-        );
+
+        // 使用AuthContext工具类从请求属性中提取用户信息
+        String userId = AuthContext.getUserId(request);
+        String appleSub = AuthContext.getAppleSub(request);
+
+        // 🔥 关键补丁：如果是空的（开发模式），手动捏一个假人
+        if (userId == null || userId.isBlank()) {
+            System.out.println("⚠️ [Dev Mode] 使用虚拟用户进行请求");
+            userId = "1"; // 假用户ID
+            appleSub = "dev_user_apple_sub"; // 假Apple Sub
+        }
+
+        // 创建CurrentUserInfo实例
+        return new CurrentUserInfo(userId, appleSub);
     }
 }

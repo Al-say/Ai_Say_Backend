@@ -105,11 +105,28 @@ public class AuthUserService {
         }
 
         // 【第三层】账号存在性验证
-        return userAccountRepository.findById(userId)
-                .orElseThrow(() -> {
-                    log.warn("用户ID不存在: {}", userId);
-                    return new ResponseStatusException(HttpStatus.UNAUTHORIZED, "用户账号不存在");
-                });
+        var account = userAccountRepository.findById(userId);
+        if (account.isPresent()) {
+            return account.get();
+        }
+
+        // 🔥 关键补丁：如果是开发模式虚拟用户，自动创建账户
+        if ("1".equals(user.userId()) && "dev_user_apple_sub".equals(user.appleSub())) {
+            log.info("⚠️ [Dev Mode] 自动创建虚拟用户账户");
+            var devAccount = new UserAccount();
+            devAccount.setId(1L);
+            devAccount.setAppleSub("dev_user_apple_sub");
+            devAccount.setDeviceId("dev_device_123");
+            devAccount.setCreatedAt(java.time.OffsetDateTime.now());
+            devAccount.setUpdatedAt(java.time.OffsetDateTime.now());
+            // 注意：这里不实际保存到数据库，只是返回虚拟对象
+            // 如果需要持久化，可以调用 userAccountRepository.save(devAccount);
+            return devAccount;
+        }
+
+        // 用户不存在，抛出异常
+        log.warn("用户ID不存在: {}", userId);
+        throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "用户账号不存在");
     }
 
     /**
