@@ -247,6 +247,9 @@ public class AuthTokenFilter extends OncePerRequestFilter {
         // Apple认证相关路径，允许匿名访问
         if (path.equals("/api/auth/apple")) return true;
 
+        // 测试端点，允许匿名访问
+        if (path.equals("/api/test")) return true;
+
         // Spring Boot Actuator监控端点，用于健康检查和监控
         if (path.startsWith("/actuator")) return true;
 
