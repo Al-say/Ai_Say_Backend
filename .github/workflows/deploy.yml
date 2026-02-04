@@ -51,13 +51,13 @@ jobs:
         echo "Pushing image to Aliyun..."
         docker push $IMAGE_TAG
 
-    # 6. 指挥服务器拉取并重启
+    # 🔥 关键修正：使用 key 参数进行 SSH 登录
     - name: SSH Remote Deploy
       uses: appleboy/ssh-action@master
       with:
         host: ${{ secrets.HOST }}
         username: ${{ secrets.USERNAME }}
-        password: ${{ secrets.SERVER_PASSWORD }}
+        key: ${{ secrets.SERVER_PRIVATE_KEY }}  # 👈 确保这里用的是 key
         script: |
           # 定义镜像地址
           IMAGE_TAG="${{ secrets.DOCKER_REGISTRY }}/${{ secrets.IMAGE_NAME }}:latest"
