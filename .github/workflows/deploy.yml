@@ -9,17 +9,27 @@ jobs:
     runs-on: self-hosted
 
     steps:
+    # ⚡️ 提速点 1：只拉取最新代码 (fetch-depth: 1)
     - name: Checkout code
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 1
 
-    # === 新增步骤：使用 Docker 临时容器编译 Java 代码 ===
-    # 这样不需要在你的服务器上安装 Maven，用完即走，非常干净
+    # ⚡️ 提速点 2：挂载 Maven 缓存 (宿主机的 ~/.m2 映射到容器内)
     - name: Compile with Maven
       run: |
         echo "1. Compiling JAR using Maven Docker container..."
-        docker run --rm -v "$(pwd)":/app -w /app maven:3.9-eclipse-temurin-21 mvn clean package -DskipTests
+        # 确保宿主机上有缓存目录
+        mkdir -p $HOME/.m2
+        
+        # -v $HOME/.m2:/root/.m2  <-- 这行是核心！把宿主机的仓库借给容器用
+        docker run --rm \
+          -v "$(pwd)":/app \
+          -v "$HOME/.m2":/root/.m2 \
+          -w /app \
+          maven:3.9-eclipse-temurin-21 \
+          mvn clean package -DskipTests
 
-    # === 原有步骤：构建镜像并启动 ===
     - name: Build and Run
       run: |
         echo "2. Building Docker Image Locally..."
