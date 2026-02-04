@@ -119,9 +119,13 @@ public class AuthUserService {
             devAccount.setDeviceId("dev_device_123");
             devAccount.setCreatedAt(java.time.OffsetDateTime.now());
             devAccount.setUpdatedAt(java.time.OffsetDateTime.now());
-            // 注意：这里不实际保存到数据库，只是返回虚拟对象
-            // 如果需要持久化，可以调用 userAccountRepository.save(devAccount);
-            return devAccount;
+            // 保存虚拟用户到数据库
+            try {
+                return userAccountRepository.save(devAccount);
+            } catch (Exception e) {
+                log.warn("保存虚拟用户失败，使用内存对象: {}", e.getMessage());
+                return devAccount;
+            }
         }
 
         // 用户不存在，抛出异常
