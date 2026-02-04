@@ -6,26 +6,30 @@ on:
 
 jobs:
   deploy:
-    # 🌟 核心修改：使用你刚刚安装的自托管 Runner
     runs-on: self-hosted
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    # 直接在服务器本地构建并启动
+    # === 新增步骤：使用 Docker 临时容器编译 Java 代码 ===
+    # 这样不需要在你的服务器上安装 Maven，用完即走，非常干净
+    - name: Compile with Maven
+      run: |
+        echo "1. Compiling JAR using Maven Docker container..."
+        docker run --rm -v "$(pwd)":/app -w /app maven:3.9-eclipse-temurin-21 mvn clean package -DskipTests
+
+    # === 原有步骤：构建镜像并启动 ===
     - name: Build and Run
       run: |
-        echo "1. Building Docker Image Locally..."
-        # 直接在服务器构建，利用本地缓存，速度极快
+        echo "2. Building Docker Image Locally..."
         docker build -t ai-backend:latest .
         
-        echo "2. Removing old container..."
+        echo "3. Removing old container..."
         docker stop ai-backend || true
         docker rm -f ai-backend || true
         
-        echo "3. Starting new container..."
-        # 启动命令 (环境变量全部保留)
+        echo "4. Starting new container..."
         docker run -d \
           --name ai-backend \
           --net=host \
@@ -53,7 +57,7 @@ jobs:
           -e STORAGE_S3_REGION='us-east-1' \
           ai-backend:latest
           
-        echo "4. Cleaning up..."
+        echo "5. Cleaning up..."
         docker image prune -f
         
-        echo "✅ Local Deployment Complete!"
+        echo "✅ Deployment Complete!"
