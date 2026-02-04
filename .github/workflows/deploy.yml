@@ -36,19 +36,21 @@ jobs:
     # 5. 构建并推送 Docker 镜像
     - name: Build and Push Docker Image
       run: |
-        # 修正点：使用 eclipse-temurin:21-jdk 替代已废弃的 openjdk:21-jdk-slim
+        # 使用基础镜像
         echo 'FROM eclipse-temurin:21-jdk' > Dockerfile
+        
+        # 🔥 新增：安装 FFmpeg (这是关键！)
+        echo 'RUN apt-get update && apt-get install -y ffmpeg' >> Dockerfile
+        
+        # 复制 JAR 包
         echo 'COPY target/speaking-0.0.1-SNAPSHOT.jar app.jar' >> Dockerfile
-        # 🔥 关键：在这里直接把 PostgreSQL 驱动和自动建表参数打进镜像里，防止 H2 复辟
+        
+        # 入口点 (保持不变，含 H2 防御)
         echo 'ENTRYPOINT ["java", "-Dspring.datasource.driver-class-name=org.postgresql.Driver", "-Dspring.jpa.hibernate.ddl-auto=update", "-jar", "/app.jar"]' >> Dockerfile
-
-        # 标记镜像 (格式: registry/namespace/repo:latest)
+        
+        # 构建并推送
         IMAGE_TAG="${{ secrets.DOCKER_REGISTRY }}/${{ secrets.IMAGE_NAME }}:latest"
-
-        echo "Building image: $IMAGE_TAG"
         docker build -t $IMAGE_TAG .
-
-        echo "Pushing image to Aliyun..."
         docker push $IMAGE_TAG
 
     # 🔥 关键修正：使用 key 参数进行 SSH 登录
@@ -81,6 +83,9 @@ jobs:
             --restart always \
             -p 2580:2580 \
             --link postgres-db:db \
+            # 🔥 新增：告诉程序 FFmpeg 在哪
+            -e FFMPEG_PATH='/usr/bin/ffmpeg' \
+            -e FFPROBE_PATH='/usr/bin/ffprobe' \
             -e SPRING_DATASOURCE_URL='${{ secrets.DB_URL }}' \
             -e SPRING_DATASOURCE_USERNAME='${{ secrets.DB_USERNAME }}' \
             -e SPRING_DATASOURCE_PASSWORD='${{ secrets.DB_PASSWORD }}' \
