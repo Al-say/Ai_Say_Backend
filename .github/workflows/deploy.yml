@@ -42,8 +42,11 @@ jobs:
         echo "4. Starting new container..."
         docker run -d \
           --name ai-backend \
-          --net=host \
+          --link postgres-db:db \
           --restart always \
+          -p 2580:2580 \
+          # 🔥 核心防御：强制指定 PostgreSQL 驱动 (防止 H2 复辟)
+          -e JAVA_TOOL_OPTIONS="-Dspring.datasource.driver-class-name=org.postgresql.Driver -Dspring.jpa.hibernate.ddl-auto=update" \
           -e SERVER_PORT='2580' \
           -e SPRING_DATASOURCE_URL='${{ secrets.DB_URL }}' \
           -e SPRING_DATASOURCE_USERNAME='${{ secrets.DB_USERNAME }}' \
