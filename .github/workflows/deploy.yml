@@ -1,76 +1,93 @@
-name: Docker Build and Deploy
+name: Deploy via Aliyun ACR (Professional)
 
 on:
   push:
     branches: [ "master" ]
 
 jobs:
-  deploy:
-    runs-on: self-hosted
+  build-and-deploy:
+    runs-on: ubuntu-latest
 
     steps:
-    # ⚡️ 提速点 1：只拉取最新代码 (fetch-depth: 1)
-    - name: Checkout code
+    # 1. 极速拉取代码
+    - name: Checkout Code
       uses: actions/checkout@v4
+
+    # 2. 设置 JDK 21
+    - name: Set up JDK 21
+      uses: actions/setup-java@v4
       with:
-        fetch-depth: 1
+        java-version: '21'
+        distribution: 'temurin'
+        cache: 'maven'
 
-    # ⚡️ 提速点 2：挂载 Maven 缓存 (宿主机的 ~/.m2 映射到容器内)
-    - name: Compile with Maven
-      run: |
-        echo "1. Compiling JAR using Maven Docker container..."
-        # 确保宿主机上有缓存目录
-        mkdir -p $HOME/.m2
-        
-        # -v $HOME/.m2:/root/.m2  <-- 这行是核心！把宿主机的仓库借给容器用
-        docker run --rm \
-          -v "$(pwd)":/app \
-          -v "$HOME/.m2":/root/.m2 \
-          -w /app \
-          maven:3.9-eclipse-temurin-21 \
-          mvn clean package -DskipTests
+    # 3. 编译 JAR 包
+    - name: Build JAR
+      run: mvn clean package -DskipTests
 
-    - name: Build and Run
+    # 4. 登录阿里云镜像仓库 (GitHub 端)
+    - name: Login to Aliyun ACR
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ secrets.DOCKER_REGISTRY }}
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+
+    # 5. 构建并推送 Docker 镜像
+    - name: Build and Push Docker Image
       run: |
-        echo "2. Building Docker Image Locally..."
-        docker build -t ai-backend:latest .
-        
-        echo "3. Removing old container..."
-        docker stop ai-backend || true
-        docker rm -f ai-backend || true
-        
-        echo "4. Starting new container..."
-        docker run -d \
-          --name ai-backend \
-          --link postgres-db:db \
-          --restart always \
-          -p 2580:2580 \
-          # 🔥 核心防御：强制指定 PostgreSQL 驱动 (防止 H2 复辟)
-          -e JAVA_TOOL_OPTIONS="-Dspring.datasource.driver-class-name=org.postgresql.Driver -Dspring.jpa.hibernate.ddl-auto=update" \
-          -e SERVER_PORT='2580' \
-          -e SPRING_DATASOURCE_URL='${{ secrets.DB_URL }}' \
-          -e SPRING_DATASOURCE_USERNAME='${{ secrets.DB_USERNAME }}' \
-          -e SPRING_DATASOURCE_PASSWORD='${{ secrets.DB_PASSWORD }}' \
-          -e DEEPSEEK_API_KEY='${{ secrets.DEEPSEEK_API_KEY }}' \
-          -e DEEPSEEK_API_URL='https://api.deepseek.com' \
-          -e DEEPSEEK_API_MODEL='deepseek-chat' \
-          -e BAIDU_API_KEY='${{ secrets.BAIDU_API_KEY }}' \
-          -e BAIDU_SECRET_KEY='${{ secrets.BAIDU_SECRET_KEY }}' \
-          -e FFMPEG_PATH='/usr/bin/ffmpeg' \
-          -e FFPROBE_PATH='/usr/bin/ffprobe' \
-          -e AUDIO_TEMP_DIR='/tmp' \
-          -e SCENE_PROMPTS_EXAM_PREP='You are an English IELTS examiner. Please correct my grammar mistakes.' \
-          -e SCENE_PROMPTS_CAREER_GROWTH='You are a senior business partner. Help me practice interview questions.' \
-          -e STORAGE_TYPE='local' \
-          -e STORAGE_LOCAL_ROOT='/app/uploads' \
-          -e STORAGE_S3_ENDPOINT='http://localhost' \
-          -e STORAGE_S3_ACCESS_KEY='dummy' \
-          -e STORAGE_S3_SECRET_KEY='dummy' \
-          -e STORAGE_S3_BUCKET='dummy' \
-          -e STORAGE_S3_REGION='us-east-1' \
-          ai-backend:latest
-          
-        echo "5. Cleaning up..."
-        docker image prune -f
-        
-        echo "✅ Deployment Complete!"
+        # 临时生成一个包含补丁的 Dockerfile
+        echo 'FROM openjdk:21-jdk-slim' > Dockerfile
+        echo 'COPY target/speaking-0.0.1-SNAPSHOT.jar app.jar' >> Dockerfile
+        # 🔥 关键：在这里直接把 PostgreSQL 驱动和自动建表参数打进镜像里，防止 H2 复辟
+        echo 'ENTRYPOINT ["java", "-Dspring.datasource.driver-class-name=org.postgresql.Driver", "-Dspring.jpa.hibernate.ddl-auto=update", "-jar", "/app.jar"]' >> Dockerfile
+
+        # 标记镜像 (格式: registry/namespace/repo:latest)
+        IMAGE_TAG="${{ secrets.DOCKER_REGISTRY }}/${{ secrets.IMAGE_NAME }}:latest"
+
+        echo "Building image: $IMAGE_TAG"
+        docker build -t $IMAGE_TAG .
+
+        echo "Pushing image to Aliyun..."
+        docker push $IMAGE_TAG
+
+    # 6. 指挥服务器拉取并重启
+    - name: SSH Remote Deploy
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.HOST }}
+        username: ${{ secrets.USERNAME }}
+        password: ${{ secrets.SERVER_PASSWORD }}
+        script: |
+          # 定义镜像地址
+          IMAGE_TAG="${{ secrets.DOCKER_REGISTRY }}/${{ secrets.IMAGE_NAME }}:latest"
+
+          echo "🚀 Starting Deployment..."
+
+          # 1. 登录阿里云 (服务器端也需要登录才能拉取)
+          docker login --username=${{ secrets.DOCKER_USERNAME }} --password=${{ secrets.DOCKER_PASSWORD }} ${{ secrets.DOCKER_REGISTRY }}
+
+          # 2. 拉取最新镜像
+          echo "📥 Pulling latest image..."
+          docker pull $IMAGE_TAG
+
+          # 3. 停止并删除旧容器
+          docker rm -f ai-backend || true
+
+          # 4. 启动新容器 (带上所有环境变量)
+          echo "🔥 Starting container..."
+          docker run -d \
+            --name ai-backend \
+            --restart always \
+            -p 2580:2580 \
+            --link postgres-db:db \
+            -e SPRING_DATASOURCE_URL='${{ secrets.DB_URL }}' \
+            -e SPRING_DATASOURCE_USERNAME='${{ secrets.DB_USERNAME }}' \
+            -e SPRING_DATASOURCE_PASSWORD='${{ secrets.DB_PASSWORD }}' \
+            -e DEEPSEEK_API_KEY='${{ secrets.DEEPSEEK_API_KEY }}' \
+            -e BAIDU_API_KEY='${{ secrets.BAIDU_API_KEY }}' \
+            -e BAIDU_SECRET_KEY='${{ secrets.BAIDU_SECRET_KEY }}' \
+            $IMAGE_TAG
+
+          echo "✅ Deployment Success! Pruning old images..."
+          docker image prune -f
