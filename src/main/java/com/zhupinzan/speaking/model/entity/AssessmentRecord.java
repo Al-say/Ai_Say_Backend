@@ -91,7 +91,7 @@ public class AssessmentRecord {
     private AssessmentMode mode;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 32)
+    @Column(nullable = false, length = 64) // ✅ 扩容：原来32位，现在64位
     /**
      * 用户角色画像
      * 【业务含义】定义用户在评估场景中的身份定位
@@ -102,11 +102,11 @@ public class AssessmentRecord {
      */
     private UserPersona persona;
 
-    @Column(nullable = false, length = 32) // ✅ 补齐
+    @Column(nullable = false, columnDefinition = "TEXT") // ✅ 扩容：原来32位，现在支持长文本
     /**
      * 使用场景
      * 【业务含义】定义评估的具体应用场景
-     * 【数据类型】String(32) - 场景标识符
+     * 【数据类型】TEXT - 支持长文本存储
      * 【业务规则】必填字段，默认值"practice"
      * 【用途】区分练习、测试、正式评估等不同场景
      * 【设计】支持未来多场景扩展，如考试模拟、面试练习等
