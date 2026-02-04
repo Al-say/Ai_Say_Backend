@@ -1,6 +1,7 @@
 # AI自然语言评估应用后端
 
 <!-- Auto-deploy trigger: 2026-02-03 v3 -->
+
 基于Spring Boot 3.2.0 + Java 21的AI英语口语练习应用后端服务。
 
 ## 功能特性
@@ -603,7 +604,4 @@ GET /actuator/metrics
 
 ## 许可证
 
-本项目采用MIT许可证 - 查看 [LICENSE](LICENSE) 文件了解详情。
-
-
-
+本项目采用MIT许可证 - 查看 [LICENSE](LICENSE) 文件了解详情
