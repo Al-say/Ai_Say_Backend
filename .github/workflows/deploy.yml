@@ -6,19 +6,18 @@ on:
 
 jobs:
   deploy:
-    # 🌟 关键修改：从 ubuntu-latest 改为 self-hosted
-    # 这意味着任务直接飞到你的火山云服务器上执行，不需要跨国传输！
+    # 🌟 核心修改：使用你刚刚安装的自托管 Runner
     runs-on: self-hosted
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    # 1. 直接在服务器本地构建并启动 (不需要 Push 到阿里云了！)
+    # 直接在服务器本地构建并启动
     - name: Build and Run
       run: |
         echo "1. Building Docker Image Locally..."
-        # 直接利用服务器本地缓存构建，速度极快
+        # 直接在服务器构建，利用本地缓存，速度极快
         docker build -t ai-backend:latest .
         
         echo "2. Removing old container..."
@@ -26,7 +25,7 @@ jobs:
         docker rm -f ai-backend || true
         
         echo "3. Starting new container..."
-        # 直接启动，环境变量全部保留
+        # 启动命令 (环境变量全部保留)
         docker run -d \
           --name ai-backend \
           --net=host \
@@ -56,3 +55,5 @@ jobs:
           
         echo "4. Cleaning up..."
         docker image prune -f
+        
+        echo "✅ Local Deployment Complete!"
