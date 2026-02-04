@@ -75,3 +75,20 @@ CREATE TABLE IF NOT EXISTS user_account (
     last_login_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_user_account_device ON user_account(device_id);
+
+-- 4. 每日挑战题目表 (AI Generated Topics Cache)
+CREATE TABLE IF NOT EXISTS daily_topics (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(512) NOT NULL,
+    description TEXT,
+    target_persona VARCHAR(32) NOT NULL,
+    for_date DATE NOT NULL,
+    ai_suggestions TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    persona VARCHAR(32),
+    prompt TEXT,
+    image_url VARCHAR(512),
+    payload JSONB NOT NULL DEFAULT '{}',
+    UNIQUE(for_date, persona)
+);
+CREATE INDEX IF NOT EXISTS idx_daily_topics_date_persona ON daily_topics(for_date, persona);
