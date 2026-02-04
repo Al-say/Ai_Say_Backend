@@ -244,11 +244,8 @@ public class AuthTokenFilter extends OncePerRequestFilter {
         // OPTIONS请求通常用于CORS预检，应直接放行
         if ("OPTIONS".equalsIgnoreCase(request.getMethod())) return true;
 
-        // Apple认证相关路径，允许匿名访问
-        if (path.equals("/api/auth/apple")) return true;
-
-        // 测试端点，允许匿名访问
-        if (path.equals("/api/test")) return true;
+        // 🚨【临时开发模式】允许所有 API 匿名访问，方便 iOS 开发测试
+        if (path.startsWith("/api/")) return true;
 
         // Spring Boot Actuator监控端点，用于健康检查和监控
         if (path.startsWith("/actuator")) return true;
