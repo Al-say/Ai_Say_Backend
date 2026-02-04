@@ -58,36 +58,30 @@ jobs:
           
           echo "3. Removing old container..."
           docker stop ai-backend || true
-          docker rm ai-backend || true
+          docker rm -f ai-backend || true
           
           echo "4. Starting new container with ENV VARS..."
+          # 注意：为了保证命令连续性，所有配置必须紧凑排列，中间不能有空行或注释
           docker run -d \
             --name ai-backend \
             --net=host \
             --restart always \
             -e SERVER_PORT='2580' \
-            # --- 数据库配置 ---
             -e SPRING_DATASOURCE_URL='${{ secrets.DB_URL }}' \
             -e SPRING_DATASOURCE_USERNAME='${{ secrets.DB_USERNAME }}' \
             -e SPRING_DATASOURCE_PASSWORD='${{ secrets.DB_PASSWORD }}' \
-            # --- AI 模型配置 ---
             -e DEEPSEEK_API_KEY='${{ secrets.DEEPSEEK_API_KEY }}' \
             -e DEEPSEEK_API_URL='https://api.deepseek.com' \
             -e DEEPSEEK_API_MODEL='deepseek-chat' \
-            # --- 百度语音配置 ---
             -e BAIDU_API_KEY='${{ secrets.BAIDU_API_KEY }}' \
             -e BAIDU_SECRET_KEY='${{ secrets.BAIDU_SECRET_KEY }}' \
-            # --- 工具路径 ---
             -e FFMPEG_PATH='/usr/bin/ffmpeg' \
             -e FFPROBE_PATH='/usr/bin/ffprobe' \
             -e AUDIO_TEMP_DIR='/tmp' \
-            # --- 业务提示词 ---
             -e SCENE_PROMPTS_EXAM_PREP='You are an English IELTS examiner. Please correct my grammar mistakes.' \
             -e SCENE_PROMPTS_CAREER_GROWTH='You are a senior business partner. Help me practice interview questions.' \
-            # --- 存储配置 ---
             -e STORAGE_TYPE='local' \
             -e STORAGE_LOCAL_ROOT='/app/uploads' \
-            # --- S3 假配置 (补全 Region) ---
             -e STORAGE_S3_ENDPOINT='http://localhost' \
             -e STORAGE_S3_ACCESS_KEY='dummy' \
             -e STORAGE_S3_SECRET_KEY='dummy' \
@@ -97,5 +91,7 @@ jobs:
             
           echo "5. Cleaning up..."
           docker image prune -f
+          
+          echo "✅ Deployment Complete!"
           
           echo "✅ Deployment Complete!"
