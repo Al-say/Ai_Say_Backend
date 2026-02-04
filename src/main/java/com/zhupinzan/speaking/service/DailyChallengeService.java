@@ -1,5 +1,6 @@
 package com.zhupinzan.speaking.service;
 
+import com.zhupinzan.speaking.service.DailyTopicPersistenceException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zhupinzan.speaking.model.UserPersona;
@@ -151,7 +152,7 @@ public class DailyChallengeService {
         } catch (Exception e) {
             log.warn("每日挑战题目持久化失败，将返回一个临时的（未持久化的）题目对象。Error: {}", e.getMessage());
             // 即使持久化失败，也返回生成的题目对象，以保证前端功能的可用性。
-            return generated;
+            throw new DailyTopicPersistenceException("Failed to persist daily topic for date: " + date + ", persona: " + personaKey, e);
         }
     }
 
