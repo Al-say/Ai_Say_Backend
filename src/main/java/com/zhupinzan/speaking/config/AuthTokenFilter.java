@@ -256,6 +256,9 @@ public class AuthTokenFilter extends OncePerRequestFilter {
         // 🔥 临时：评估端点，允许匿名访问用于测试 DeepSeek 集成
         if (path.startsWith("/api/eval/")) return true;
 
+        // 🔥 临时：测试端点，允许匿名访问用于测试 DeepSeek 集成
+        if (path.startsWith("/api/test/")) return true;
+
         // Spring Boot Actuator监控端点，用于健康检查和监控
         if (path.startsWith("/actuator")) return true;
 
