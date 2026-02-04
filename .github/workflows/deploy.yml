@@ -6,94 +6,53 @@ on:
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    # 🌟 关键修改：从 ubuntu-latest 改为 self-hosted
+    # 这意味着任务直接飞到你的火山云服务器上执行，不需要跨国传输！
+    runs-on: self-hosted
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Set up JDK 21
-      uses: actions/setup-java@v4
-      with:
-        java-version: '21'
-        distribution: 'temurin'
-        cache: 'maven'
-
-    # 1. Maven 构建 (只打包，不传文件)
-    - name: Build with Maven
-      run: mvn clean package -DskipTests
-
-    # 2. 登录阿里云仓库
-    - name: Login to Docker Registry
-      uses: docker/login-action@v3
-      with:
-        registry: ${{ secrets.DOCKER_REGISTRY }}
-        username: ${{ secrets.DOCKER_USERNAME }}
-        password: ${{ secrets.DOCKER_PASSWORD }}
-
-    # 3. 构建 Docker 镜像并推送到阿里云
-    - name: Build and Push Image
+    # 1. 直接在服务器本地构建并启动 (不需要 Push 到阿里云了！)
+    - name: Build and Run
       run: |
-        # 使用当前 commit hash 作为版本号，同时也打一个 latest 标签
-        docker build -t ${{ secrets.IMAGE_NAME }}:${{ github.sha }} .
-        docker build -t ${{ secrets.IMAGE_NAME }}:latest .
-        docker push ${{ secrets.IMAGE_NAME }}:${{ github.sha }}
-        docker push ${{ secrets.IMAGE_NAME }}:latest
-
-    # 4. 远程指挥火山服务器干活
-    - name: Deploy to Volcano Server
-      uses: appleboy/ssh-action@master
-      with:
-        host: ${{ secrets.HOST }}
-        username: ${{ secrets.USERNAME }}
-        key: ${{ secrets.KEY }}
-        timeout: "60s"
-        command_timeout: "30m"
-        script: |
-          set +e
+        echo "1. Building Docker Image Locally..."
+        # 直接利用服务器本地缓存构建，速度极快
+        docker build -t ai-backend:latest .
+        
+        echo "2. Removing old container..."
+        docker stop ai-backend || true
+        docker rm -f ai-backend || true
+        
+        echo "3. Starting new container..."
+        # 直接启动，环境变量全部保留
+        docker run -d \
+          --name ai-backend \
+          --net=host \
+          --restart always \
+          -e SERVER_PORT='2580' \
+          -e SPRING_DATASOURCE_URL='${{ secrets.DB_URL }}' \
+          -e SPRING_DATASOURCE_USERNAME='${{ secrets.DB_USERNAME }}' \
+          -e SPRING_DATASOURCE_PASSWORD='${{ secrets.DB_PASSWORD }}' \
+          -e DEEPSEEK_API_KEY='${{ secrets.DEEPSEEK_API_KEY }}' \
+          -e DEEPSEEK_API_URL='https://api.deepseek.com' \
+          -e DEEPSEEK_API_MODEL='deepseek-chat' \
+          -e BAIDU_API_KEY='${{ secrets.BAIDU_API_KEY }}' \
+          -e BAIDU_SECRET_KEY='${{ secrets.BAIDU_SECRET_KEY }}' \
+          -e FFMPEG_PATH='/usr/bin/ffmpeg' \
+          -e FFPROBE_PATH='/usr/bin/ffprobe' \
+          -e AUDIO_TEMP_DIR='/tmp' \
+          -e SCENE_PROMPTS_EXAM_PREP='You are an English IELTS examiner. Please correct my grammar mistakes.' \
+          -e SCENE_PROMPTS_CAREER_GROWTH='You are a senior business partner. Help me practice interview questions.' \
+          -e STORAGE_TYPE='local' \
+          -e STORAGE_LOCAL_ROOT='/app/uploads' \
+          -e STORAGE_S3_ENDPOINT='http://localhost' \
+          -e STORAGE_S3_ACCESS_KEY='dummy' \
+          -e STORAGE_S3_SECRET_KEY='dummy' \
+          -e STORAGE_S3_BUCKET='dummy' \
+          -e STORAGE_S3_REGION='us-east-1' \
+          ai-backend:latest
           
-          echo "1. Logging into Registry..."
-          docker login --username=${{ secrets.DOCKER_USERNAME }} --password=${{ secrets.DOCKER_PASSWORD }} ${{ secrets.DOCKER_REGISTRY }}
-          
-          echo "2. Pulling latest image..."
-          docker pull ${{ secrets.IMAGE_NAME }}:latest
-          
-          echo "3. Removing old container..."
-          docker stop ai-backend || true
-          docker rm -f ai-backend || true
-          
-          echo "4. Starting new container with ENV VARS..."
-          # 注意：为了保证命令连续性，所有配置必须紧凑排列，中间不能有空行或注释
-          docker run -d \
-            --name ai-backend \
-            --net=host \
-            --restart always \
-            -e SERVER_PORT='2580' \
-            -e SPRING_DATASOURCE_URL='${{ secrets.DB_URL }}' \
-            -e SPRING_DATASOURCE_USERNAME='${{ secrets.DB_USERNAME }}' \
-            -e SPRING_DATASOURCE_PASSWORD='${{ secrets.DB_PASSWORD }}' \
-            -e DEEPSEEK_API_KEY='${{ secrets.DEEPSEEK_API_KEY }}' \
-            -e DEEPSEEK_API_URL='https://api.deepseek.com' \
-            -e DEEPSEEK_API_MODEL='deepseek-chat' \
-            -e BAIDU_API_KEY='${{ secrets.BAIDU_API_KEY }}' \
-            -e BAIDU_SECRET_KEY='${{ secrets.BAIDU_SECRET_KEY }}' \
-            -e FFMPEG_PATH='/usr/bin/ffmpeg' \
-            -e FFPROBE_PATH='/usr/bin/ffprobe' \
-            -e AUDIO_TEMP_DIR='/tmp' \
-            -e SCENE_PROMPTS_EXAM_PREP='You are an English IELTS examiner. Please correct my grammar mistakes.' \
-            -e SCENE_PROMPTS_CAREER_GROWTH='You are a senior business partner. Help me practice interview questions.' \
-            -e STORAGE_TYPE='local' \
-            -e STORAGE_LOCAL_ROOT='/app/uploads' \
-            -e STORAGE_S3_ENDPOINT='http://localhost' \
-            -e STORAGE_S3_ACCESS_KEY='dummy' \
-            -e STORAGE_S3_SECRET_KEY='dummy' \
-            -e STORAGE_S3_BUCKET='dummy' \
-            -e STORAGE_S3_REGION='us-east-1' \
-            ${{ secrets.IMAGE_NAME }}:latest
-            
-          echo "5. Cleaning up..."
-          docker image prune -f
-          
-          echo "✅ Deployment Complete!"
-          
-          echo "✅ Deployment Complete!"
+        echo "4. Cleaning up..."
+        docker image prune -f
