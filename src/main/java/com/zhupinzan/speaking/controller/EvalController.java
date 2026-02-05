@@ -358,10 +358,10 @@ public class EvalController {
      */
     @PostMapping("/audio/full")
     public ResponseEntity<?> evaluateAudio(
-            @CurrentUser CurrentUserInfo user,
             @RequestParam("persona") UserPersona persona,
             @RequestParam("scene") String scene,
-            @RequestPart("audio") MultipartFile audioFile) {
+            @RequestPart("audio") MultipartFile audioFile,
+            @RequestParam(value = "deviceId", required = false) String deviceIdParam) {
 
         // 参数校验：确保音频文件存在且有效
         if (audioFile.isEmpty()) {
@@ -370,8 +370,14 @@ public class EvalController {
         }
 
         try {
-            // 步骤1：验证用户设备绑定
-            var deviceId = authUserService.requireDeviceId(user);
+            // 步骤1：处理用户认证信息
+            // 如果用户未登录，使用默认设备ID或请求参数中的deviceId
+            String deviceId;
+            if (deviceIdParam != null && !deviceIdParam.trim().isEmpty()) {
+                deviceId = deviceIdParam;
+            } else {
+                deviceId = "anonymous-device-" + System.currentTimeMillis();
+            }
 
             // 步骤2：委托给评估编排服务处理完整的评估流程
             // 该服务将协调音频处理、语音识别、AI评估等多个步骤

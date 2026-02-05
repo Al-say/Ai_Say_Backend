@@ -137,7 +137,7 @@ public class UserAccount implements UserDetails {
      */
     private String bio;
 
-    @Column(name = "device_id", length = 64)
+    @Column(name = "current_device_id", length = 64)
     /**
      * 当前设备标识符
      * 【业务含义】用户当前使用的设备ID
@@ -146,7 +146,7 @@ public class UserAccount implements UserDetails {
      * 【用途】支持多设备使用，数据同步和设备管理
      * 【关联】与Device实体关联，但不强制外键约束（灵活设计）
      */
-    private String deviceId;
+    private String currentDeviceId;
 
     @Column(name = "created_at", nullable = false)
     /**
@@ -213,11 +213,17 @@ public class UserAccount implements UserDetails {
     }
 
     /**
-     * 设置昵称（兼容 JWT 认证系统）
-     * 设置到 displayName 字段
+     * 获取当前设备ID（兼容旧方法名）
      */
-    public void setNickname(String nickname) {
-        this.displayName = nickname;
+    public String getDeviceId() {
+        return currentDeviceId;
+    }
+
+    /**
+     * 设置当前设备ID（兼容旧方法名）
+     */
+    public void setDeviceId(String deviceId) {
+        this.currentDeviceId = deviceId;
     }
 
     @Override

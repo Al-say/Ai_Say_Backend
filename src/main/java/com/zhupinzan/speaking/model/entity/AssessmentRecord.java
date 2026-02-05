@@ -58,6 +58,28 @@ public class AssessmentRecord {
      */
     private String deviceId;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    /**
+     * 用户ID
+     * 【业务含义】关联到用户账户，支持登录后数据回填
+     * 【数据类型】Long - 用户主键
+     * 【业务规则】可为空，未登录用户为null
+     * 【关联关系】关联UserAccount实体
+     */
+    private UserAccount user;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "task_id")
+    /**
+     * 任务ID
+     * 【业务含义】关联到异步评估任务，用于数据溯源
+     * 【数据类型】String - 任务UUID
+     * 【业务规则】可为空，同步评估为null
+     * 【关联关系】关联EvaluationTask实体
+     */
+    private EvaluationTask task;
+
     @Column(name = "created_at", nullable = false)
     /**
      * 记录创建时间

@@ -9,6 +9,11 @@ services:
       - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d speaking_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   minio:
     image: minio/minio
@@ -26,10 +31,12 @@ services:
     image: a_say_backend:latest
     build: .
     depends_on:
-      - postgres
-      - minio
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_started
     ports:
-      - "2581:2580"
+      - "2580:2580"
     environment:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/speaking_db
       - SPRING_DATASOURCE_USERNAME=postgres

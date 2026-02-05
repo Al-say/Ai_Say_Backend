@@ -50,9 +50,9 @@ public class AsyncEvaluationService {
                 );
             }
             
-            task.setResultJson(objectMapper.writeValueAsString(assessmentResult));
+            task.setResult(objectMapper.writeValueAsString(assessmentResult));
             task.setStatus(TaskStatus.COMPLETED);
-            task.setCompletedAt(LocalDateTime.now());
+            task.setCompletedAt(java.time.OffsetDateTime.now());
             
         } catch (Exception e) {
             log.error("Task failed: {}", taskId, e);
@@ -71,9 +71,12 @@ public class AsyncEvaluationService {
         // 1. 先在数据库占个位
         EvaluationTask task = new EvaluationTask();
         task.setId(taskId);
-        task.setUserEmail(userEmail);
-        task.setOriginalText(transcript);
+        task.setUserIdentity(userEmail);
+        task.setPersona(persona != null ? persona.name() : null);
+        task.setScene(scene);
+        task.setTranscript(transcript);
         task.setStatus(TaskStatus.PENDING);
+        task.setProgress(0);
         taskRepository.save(task);
 
         // 2. 触发异步处理
@@ -99,15 +102,15 @@ public class AsyncEvaluationService {
         if (task == null) {
             return null;
         }
-        if (task.getUserEmail() != null && userEmail != null && !task.getUserEmail().equals(userEmail)) {
+        if (task.getUserIdentity() != null && userEmail != null && !task.getUserIdentity().equals(userEmail)) {
             throw new SecurityException("Access denied: You are not the owner of this task");
         }
         return mapToResponse(task);
     }
 
     // 获取用户历史
-    public List<EvaluationTask> getUserHistory(String userEmail) {
-        return taskRepository.findByUserEmailOrderByCreatedAtDesc(userEmail);
+    public List<EvaluationTask> getUserHistory(String userIdentity) {
+        return taskRepository.findByUserIdentityOrderByCreatedAtDesc(userIdentity);
     }
 
     private AsyncEvaluationResponse mapToResponse(EvaluationTask task) {
@@ -121,11 +124,11 @@ public class AsyncEvaluationService {
         };
 
         DeepSeekEvalResult result = null;
-        if (status == AsyncEvaluationResponse.TaskStatus.COMPLETED && task.getResultJson() != null) {
+        if (status == AsyncEvaluationResponse.TaskStatus.COMPLETED && task.getResult() != null) {
             try {
-                result = objectMapper.readValue(task.getResultJson(), DeepSeekEvalResult.class);
+                result = objectMapper.readValue(task.getResult(), DeepSeekEvalResult.class);
             } catch (Exception e) {
-                log.warn("Failed to parse resultJson for task {}", task.getId());
+                log.warn("Failed to parse result for task {}", task.getId());
             }
         }
 
@@ -135,8 +138,8 @@ public class AsyncEvaluationService {
                 .progress(status == AsyncEvaluationResponse.TaskStatus.COMPLETED ? 100 : 0)
                 .result(result)
                 .errorMessage(task.getErrorMessage())
-                .createdAt(task.getCreatedAt())
-                .completedAt(task.getCompletedAt())
+                .createdAt(task.getCreatedAt() != null ? task.getCreatedAt().toLocalDateTime() : null)
+                .completedAt(task.getCompletedAt() != null ? task.getCompletedAt().toLocalDateTime() : null)
                 .estimatedSecondsRemaining(status == AsyncEvaluationResponse.TaskStatus.COMPLETED ? 0 : null)
                 .build();
     }

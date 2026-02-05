@@ -235,6 +235,7 @@ public enum UserPersona {
      * </ul>
      * </p>
      */
+    DAILY_LIFE,
     CAREER_GROWTH;
 
     /**
@@ -247,6 +248,7 @@ public enum UserPersona {
     public String getDisplayName() {
         return switch (this) {
             case EXAM_PREP -> "备考党";
+            case DAILY_LIFE -> "日常生活";
             case CAREER_GROWTH -> "职场发展";
         };
     }
@@ -261,6 +263,7 @@ public enum UserPersona {
     public String getLearningObjective() {
         return switch (this) {
             case EXAM_PREP -> "通过标准化考试，取得理想成绩";
+            case DAILY_LIFE -> "提升日常生活英语沟通能力";
             case CAREER_GROWTH -> "提升职场沟通效能和职业竞争力";
         };
     }
@@ -275,6 +278,7 @@ public enum UserPersona {
     public int getDifficultyLevel() {
         return switch (this) {
             case EXAM_PREP -> 2;
+            case DAILY_LIFE -> 1;
             case CAREER_GROWTH -> 3;
         };
     }
@@ -289,6 +293,7 @@ public enum UserPersona {
     public boolean isSuitableForBeginner() {
         return switch (this) {
             case EXAM_PREP -> true;
+            case DAILY_LIFE -> true;
             case CAREER_GROWTH -> false;
         };
     }
@@ -303,6 +308,7 @@ public enum UserPersona {
     public String getLearningStyle() {
         return switch (this) {
             case EXAM_PREP -> "系统学习，注重练习，反复训练";
+            case DAILY_LIFE -> "轻松学习，日常生活情境，趣味互动";
             case CAREER_GROWTH -> "实用导向，情境模拟，即时反馈";
         };
     }
@@ -317,6 +323,7 @@ public enum UserPersona {
     public int getRecommendedWeeklyFrequency() {
         return switch (this) {
             case EXAM_PREP -> 5;
+            case DAILY_LIFE -> 4;
             case CAREER_GROWTH -> 3;
         };
     }
@@ -331,6 +338,7 @@ public enum UserPersona {
     public String getExpectedOutcome() {
         return switch (this) {
             case EXAM_PREP -> "考试成绩提升1-2个等级";
+            case DAILY_LIFE -> "日常生活英语沟通无障碍";
             case CAREER_GROWTH -> "职场沟通效率显著改善";
         };
     }

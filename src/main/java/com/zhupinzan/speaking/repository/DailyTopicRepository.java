@@ -203,14 +203,37 @@ public interface DailyTopicRepository extends JpaRepository<DailyTopic, Long> {
     @Query(value = """
             INSERT INTO daily_topics(for_date, persona, target_persona, title, prompt, image_url, payload, created_at)
             VALUES (:date, :persona, CAST(:persona AS varchar), :title, :prompt, :imageUrl, CAST(:payload AS jsonb), CURRENT_TIMESTAMP)
-            ON CONFLICT (for_date, persona)
-            DO UPDATE SET
-              title = EXCLUDED.title,
-              prompt = EXCLUDED.prompt,
-              image_url = EXCLUDED.image_url,
-              payload = EXCLUDED.payload
             """, nativeQuery = true)
     void upsertDailyTopic(
+            @Param("date") LocalDate date,
+            @Param("persona") String persona,
+            @Param("title") String title,
+            @Param("prompt") String prompt,
+            @Param("imageUrl") String imageUrl,
+            @Param("payload") String payloadJson);
+
+    /**
+     * 更新每日题目内容
+     *
+     * <p>功能说明：
+     * 专门用于更新已存在的每日题目记录。
+     * 当upsert操作因某些原因失败时，使用此方法直接更新记录。
+     *
+     * <p>参数说明：
+     * @param date 题目日期
+     * @param persona 画像标识
+     * @param title 新标题
+     * @param prompt 新提示词
+     * @param imageUrl 新图片URL
+     * @param payloadJson 新扩展数据JSON
+     */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(value = """
+            UPDATE daily_topics
+            SET title = :title, prompt = :prompt, image_url = :imageUrl, payload = CAST(:payload AS jsonb), updated_at = CURRENT_TIMESTAMP
+            WHERE for_date = :date AND persona = :persona
+            """, nativeQuery = true)
+    void updateDailyTopic(
             @Param("date") LocalDate date,
             @Param("persona") String persona,
             @Param("title") String title,

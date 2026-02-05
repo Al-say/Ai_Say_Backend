@@ -84,12 +84,13 @@ public class SecurityConfig {
                 // 公开访问的端点（不需要认证）
                 .requestMatchers("/api/auth/**").permitAll()  // 认证接口 (包括注册和登录)
                 .requestMatchers("/api/home/daily").permitAll() // 每日挑战接口，允许匿名访问
+                .requestMatchers("/api/eval/**").permitAll()  // 评估接口，允许匿名访问
                 .requestMatchers("/h2-console/**").permitAll()  // H2 控制台
                 .requestMatchers("/actuator/**").permitAll()  // 健康检查
                 .requestMatchers("/api/v1/evaluate/health").permitAll()  // API 健康检查
 
-                // 其他所有接口都需要认证
-                .anyRequest().authenticated()
+                // 临时：允许所有请求匿名访问用于调试
+                .anyRequest().permitAll()
             )
             // 配置自定义的 AuthenticationProvider
             .authenticationProvider(authenticationProvider())

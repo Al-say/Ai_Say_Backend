@@ -19,10 +19,17 @@ spring:
 
   # 🔥 生产环境请注释掉上面的H2配置，使用下面的PostgreSQL配置
   datasource:
-    url: jdbc:postgresql://localhost:5433/speaking_db
+    url: jdbc:postgresql://localhost:5432/speaking_db
     username: postgres
     password: your_password
     driver-class-name: org.postgresql.Driver
+    hikari:
+      connection-timeout: 60000
+      maximum-pool-size: 10
+      minimum-idle: 5
+      idle-timeout: 300000
+      max-lifetime: 1200000
+      leak-detection-threshold: 60000
 
   jpa:
     hibernate:
@@ -38,7 +45,7 @@ spring:
 deepseek:
   api:
     key: ${DEEPSEEK_API_KEY:dummy-key}  # 环境变量优先,本地开发可用 dummy
-    url: ${DEEPSEEK_API_URL:https://api.deepseek.com/chat/completions}
+    url: ${DEEPSEEK_API_URL:https://api.deepseek.com/v1/chat/completions}
     model: ${DEEPSEEK_MODEL:deepseek-chat}
 
 # JWT 认证配置 - 使用环境变量保护密钥

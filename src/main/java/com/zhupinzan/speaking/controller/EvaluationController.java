@@ -5,7 +5,10 @@ import com.zhupinzan.speaking.model.dto.AsyncEvaluationResponse;
 import com.zhupinzan.speaking.model.dto.EvaluationRequest;
 import com.zhupinzan.speaking.model.entity.EvaluationTask;
 import com.zhupinzan.speaking.service.AsyncEvaluationService;
+import com.zhupinzan.speaking.util.CurrentUser;
+import com.zhupinzan.speaking.util.CurrentUserInfo;
 import jakarta.validation.Valid;
+import java.util.Collections;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -49,10 +52,9 @@ public class EvaluationController {
 
     // 3. 📜 查询历史记录（新增）
     @GetMapping("/history")
-    public ResponseEntity<List<EvaluationTask>> getHistory() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String userIdentity = authentication != null ? authentication.getName() : "anonymous";
+    public ResponseEntity<List<EvaluationTask>> getHistory(@CurrentUser CurrentUserInfo user) {
+        String userIdentity = user.appleSub();
         List<EvaluationTask> history = evaluationService.getUserHistory(userIdentity);
-        return ResponseEntity.ok(history);
+        return ResponseEntity.ok(history != null ? history : Collections.emptyList());
     }
 }

@@ -419,6 +419,9 @@ public record SceneDTO(
      * @return 角色显示名称
      */
     public String getPersonaDisplayName() {
+        if (targetPersona == null) {
+            return "通用";
+        }
         switch (targetPersona) {
             case EXAM_PREP:
                 return "备考党";
@@ -449,6 +452,9 @@ public record SceneDTO(
      * @return 难度等级
      */
     public int getDifficultyLevel() {
+        if (targetPersona == null) {
+            return 2;
+        }
         switch (targetPersona) {
             case EXAM_PREP:
                 return 3;
@@ -558,7 +564,11 @@ public record SceneDTO(
     public List<String> getTags() {
         List<String> tags = new java.util.ArrayList<>();
         tags.add(category);
-        tags.add(targetPersona.name().toLowerCase());
+        if (targetPersona != null) {
+            tags.add(targetPersona.name().toLowerCase());
+        } else {
+            tags.add("general");
+        }
 
         // 添加更多相关标签
         switch (category) {
@@ -591,6 +601,9 @@ public record SceneDTO(
      */
     public boolean isSuitableFor(UserPersona currentPersona) {
         // 简单匹配逻辑：当前角色应小于等于目标角色
+        if (targetPersona == null || currentPersona == null) {
+            return true; // 通用场景适合所有用户
+        }
         int currentLevel = currentPersona.ordinal();
         int targetLevel = targetPersona.ordinal();
 

@@ -99,6 +99,16 @@ public class PromptFactory {
                 Tone: Formal, objective, constructive.
                 """ + buildSystemPrompt();
 
+            case DAILY_LIFE -> """
+                You are a friendly English Conversation Coach.
+                Goal: Help learner communicate in daily situations.
+                Focus:
+                - Natural expressions and idioms.
+                - Everyday vocabulary.
+                - Building confidence in casual talk.
+                Tone: Warm, encouraging, conversational.
+                """ + buildSystemPrompt();
+
             case CAREER_GROWTH -> """
                 You are a Fortune 500 Communication Coach.
                 Goal: Help professional communicate efficiently.

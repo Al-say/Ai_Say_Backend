@@ -196,6 +196,20 @@ public class DailyChallengeService {
             );
             // 再次查询以获取持久化后的完整实体，确保返回的是带有ID和其他数据库生成字段的最新状态。
             return repo.findByTopicDateAndPersona(date, personaKey).orElse(generated);
+        } catch (org.springframework.dao.DataIntegrityViolationException e) {
+            // 如果是重复键异常，说明记录已存在，尝试更新
+            log.info("记录已存在，正在更新: date={}, persona={}", date, personaKey);
+            try {
+                repo.updateDailyTopic(
+                    date, personaKey, generated.getTitle(),
+                    generated.getPrompt(), generated.getImageUrl(),
+                    om.writeValueAsString(generated.getPayload())
+                );
+                return repo.findByTopicDateAndPersona(date, personaKey).orElse(generated);
+            } catch (Exception updateException) {
+                log.warn("更新每日挑战题目失败，将返回一个临时的（未持久化的）题目对象。Error: {}", updateException.getMessage());
+                throw new DailyTopicPersistenceException("Failed to update daily topic for date: " + date + ", persona: " + personaKey, updateException);
+            }
         } catch (Exception e) {
             // 如果持久化失败，记录警告并抛出自定义异常，以便进行监控。
             log.warn("每日挑战题目持久化失败，将返回一个临时的（未持久化的）题目对象。Error: {}", e.getMessage());

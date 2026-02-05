@@ -148,6 +148,17 @@ public class TopicGeneratorTask {
                     }
                     """;
 
+            case DAILY_LIFE -> """
+                    You are a friendly English conversation coach.
+                    Generate one speaking topic suitable for daily life communication.
+                    Focus on everyday situations and casual expressions.
+                    Return ONLY JSON format:
+                    {
+                        "title": "topic title",
+                        "description": "detailed description with instructions"
+                    }
+                    """;
+
             case CAREER_GROWTH -> """
                     You are a business communication coach.
                     Generate one speaking topic suitable for workplace communication.
@@ -167,6 +178,8 @@ public class TopicGeneratorTask {
     private String buildUserPrompt(UserPersona persona) {
         return switch (persona) {
             case EXAM_PREP -> "Generate an IELTS Speaking Part 2 style topic with clear instructions.";
+
+            case DAILY_LIFE -> "Generate a casual daily life conversation topic with friendly instructions.";
 
             case CAREER_GROWTH -> "Generate a workplace communication scenario topic with practical instructions.";
         };
