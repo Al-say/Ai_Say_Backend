@@ -35,12 +35,14 @@ Started SpeakingApplication in X.XXX seconds
 ### Step 1: 健康检查
 
 ```bash
-curl http://localhost:2580/api/v1/evaluate/health
+curl http://localhost:2580/actuator/health
 ```
 
 **预期响应**:
-```
-Evaluation Service is running
+```json
+{
+  "status": "UP"
+}
 ```
 
 ---
@@ -50,12 +52,11 @@ Evaluation Service is running
 ```bash
 curl -X POST http://localhost:2580/api/v1/evaluate \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -d '{
     "persona": "EXAM_PREP",
-    "scene": "job_interview",
-    "transcript": "I have been working as a software engineer for five years. During this time, I have developed strong skills in Java and Spring Boot. I enjoy solving complex problems and working with team members.",
-    "userId": "test-user-001",
-    "async": true
+    "scene": "Describe your favorite food",
+    "transcript": "I really enjoy eating pizza because it has delicious cheese and various toppings."
   }' | jq
 ```
 
@@ -83,10 +84,12 @@ curl -X POST http://localhost:2580/api/v1/evaluate \
 
 ```bash
 # 第一次查询（约 2 秒后）
-curl http://localhost:2580/api/v1/evaluate/{taskId} | jq
+curl -X GET http://localhost:2580/api/v1/evaluate/{taskId} \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" | jq
 
 # 如果状态还是 PROCESSING，再等 2-3 秒后查询
-curl http://localhost:2580/api/v1/evaluate/{taskId} | jq
+curl -X GET http://localhost:2580/api/v1/evaluate/{taskId} \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" | jq
 ```
 
 **预期响应（处理中）** (HTTP 202):

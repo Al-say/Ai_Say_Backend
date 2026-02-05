@@ -153,7 +153,7 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>3.2.5</version>
                 <configuration>
-                    <argLine>-XX:+EnableDynamicAgentLoading -Xshare:off</argLine>
+                    <argLine>-XX:+EnableDynamicAgentLoading -Xshare:off -Djdk.attach.allowAttachSelf=true</argLine>
                 </configuration>
             </plugin>
             <plugin>

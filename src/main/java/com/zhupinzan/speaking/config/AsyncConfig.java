@@ -59,7 +59,7 @@ public class AsyncConfig {
      *
      * @return 配置好的线程池执行器
      */
-    @Bean(name = "taskExecutor")
+    @Bean(name = "asyncTaskExecutor")
     public Executor taskExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
 

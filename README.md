@@ -1,10 +1,10 @@
 # AI 智能口语评估系统后端 🎯
 
-<!-- Auto-deploy trigger: 2026-02-05 v4 - Async Architecture Upgrade -->
+<!-- Auto-deploy trigger: 2026-02-06 v5 - Bug Fixes & Docker Optimization -->
 
 基于 Spring Boot 3.2.0 + Java 21 的企业级 AI 英语口语练习应用后端服务。
 
-## ✨ 最新更新（2026-02-05）
+## ✨ 最新更新（2026-02-06）
 
 ### 🚀 架构升级亮点
 
@@ -13,6 +13,13 @@
 - ✅ **数据契约标准化**: 定义清晰的 Request/Response DTO，前后端并行开发
 - ✅ **Prompt 工程优化**: 三层解析防护 + 降级策略，确保 AI 稳定输出 JSON
 - ✅ **完整文档体系**: 架构决策、测试手册、快速启动指南
+
+### 🐛 最新修复
+
+- ✅ **编译错误修复**: 修复 AsyncEvaluationService 和 EvaluationController 中的API调用错误
+- ✅ **字段映射修正**: 更新 getText() → getTranscript(), userEmail → userIdentity
+- ✅ **Docker优化**: 支持容器内Maven构建，集成FFmpeg音频处理
+- ✅ **测试通过**: 所有单元测试通过，应用正常启动
 
 ### 📚 核心文档
 
@@ -120,12 +127,28 @@ docker-compose up -d
 
 ### 运行应用
 
+#### 方式一：本地开发运行
+
 ```bash
 mvn clean install
 mvn spring-boot:run
 ```
 
-应用将在 `http://localhost:8082` 启动。
+#### 方式二：Docker 容器运行
+
+```bash
+# 构建镜像
+docker build -t ai-say-backend:latest .
+
+# 运行容器（需要设置环境变量）
+docker run -p 2580:2580 \
+  -e DEEPSEEK_API_KEY=your_key \
+  -e BAIDU_API_KEY=your_key \
+  -e BAIDU_SECRET_KEY=your_key \
+  ai-say-backend:latest
+```
+
+应用将在 `http://localhost:2580` 启动。
 
 ## API文档
 
