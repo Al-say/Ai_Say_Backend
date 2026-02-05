@@ -9,6 +9,7 @@ import com.zhupinzan.speaking.util.CurrentUserInfo;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import com.zhupinzan.speaking.model.entity.UserAccount; // Added import for UserAccount
 
 /**
  * 用户个人中心REST控制器
@@ -273,22 +274,21 @@ public class ProfileController {
      */
     @GetMapping("/stats")
     public ResponseEntity<ProfileStatsDTO> stats(@CurrentUser CurrentUserInfo user) {
-        // 步骤1：验证用户身份并获取设备ID
-        var deviceId = authUserService.requireDeviceId(user);
+        // 步骤1：验证用户身份并获取用户账号 (不再强制设备绑定)
+        UserAccount account = authUserService.requireAccount(user);
+        String deviceId = account.getDeviceId(); // 获取用户已绑定的设备ID
 
         // 步骤2：从数据库中查找用户的进度记录
-        // 使用Optional避免空指针异常，并提供优雅的默认值处理
-        var p = userProgressRepo.findByDeviceId(deviceId).orElse(null);
+        // 如果用户未绑定设备，则不查询进度，直接返回默认值
+        var p = (deviceId != null) ? userProgressRepo.findByDeviceId(deviceId).orElse(null) : null;
 
         // 步骤3：处理查询结果
         if (p == null) {
-            // 如果用户没有进度记录（新用户或数据丢失），返回默认值
-            // 这样避免了客户端因空值而出错
+            // 如果用户没有进度记录或未绑定设备，返回默认值
             return ResponseEntity.ok(new ProfileStatsDTO(deviceId, 0, null, 0, 0L));
         }
 
         // 步骤4：如果找到记录，构建并返回统计数据DTO
-        // 注意：日期可能为null，需要进行空值处理
         return ResponseEntity.ok(new ProfileStatsDTO(
             deviceId,
             p.getStreakDays(),

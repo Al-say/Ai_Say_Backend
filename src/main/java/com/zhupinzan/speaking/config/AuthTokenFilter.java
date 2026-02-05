@@ -55,13 +55,14 @@ public class AuthTokenFilter extends OncePerRequestFilter {
             Claims claims = jwtUtil.validateTokenAndGetClaims(token);
 
             // 步骤 4: 从Claims中提取用户信息
-            Long userId = claims.get("userId", Long.class); // Get userId from custom claim
-            String subject = claims.getSubject(); // Get subject (email or username)
+            Long userId = jwtUtil.extractUserId(token);
 
             if (userId == null) {
                 writeUnauthorized(response, "Token 中缺少用户ID信息");
                 return;
             }
+
+            String subject = claims.getSubject(); // Get subject (email or username)
 
             // 步骤 5: 将用户信息存入请求属性
             request.setAttribute("auth.userId", String.valueOf(userId));

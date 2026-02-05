@@ -10,6 +10,8 @@ import com.zhupinzan.speaking.model.entity.UserAccount; // Added import for User
 import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * JWT 工具类 - 令牌的签发与验证中心
@@ -86,16 +88,32 @@ public class JwtUtil {
 
         String subject = account.getEmail() != null ? account.getEmail() : account.getUsername();
 
-        String token = Jwts.builder()
-                .setSubject(subject)
-                .claim("userId", account.getId()) // Add userId as a custom claim
-                .setIssuedAt(now)
-                .setExpiration(expiryDate)
-                .signWith(getSigningKey(), SignatureAlgorithm.HS256)
-                .compact();
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("userId", account.getId());
+
+        String token = createToken(claims, subject, now, expiryDate);
 
         log.debug("生成 JWT Token: subject={}, userId={}, expiresAt={}", subject, account.getId(), expiryDate);
         return token;
+    }
+
+    /**
+     * 创建 JWT Token 的辅助方法
+     *
+     * @param claims 自定义claims
+     * @param subject 主题
+     * @param issuedAt 签发时间
+     * @param expiration 过期时间
+     * @return JWT Token 字符串
+     */
+    private String createToken(Map<String, Object> claims, String subject, Date issuedAt, Date expiration) {
+        return Jwts.builder()
+                .setClaims(claims)
+                .setSubject(subject)
+                .setIssuedAt(issuedAt)
+                .setExpiration(expiration)
+                .signWith(getSigningKey(), SignatureAlgorithm.HS256)
+                .compact();
     }
 
     /**
@@ -138,6 +156,33 @@ public class JwtUtil {
             log.error("Token 为空或无效: {}", e.getMessage());
             throw new JwtException("Token 不能为空");
         }
+    }
+
+    /**
+     * 从 Token 中提取 userId
+     *
+     * @param token JWT Token 字符串
+     * @return userId，如果不存在或无法转换则返回null
+     */
+    public Long extractUserId(String token) {
+        Claims claims = validateTokenAndGetClaims(token);
+        Object userIdObj = claims.get("userId");
+        if (userIdObj == null) {
+            return null;
+        }
+        // 防止 Integer/Long 类型转换问题
+        if (userIdObj instanceof Number) {
+            return ((Number) userIdObj).longValue();
+        } else if (userIdObj instanceof String) {
+            try {
+                return Long.parseLong((String) userIdObj);
+            } catch (NumberFormatException e) {
+                log.warn("userId claim 无法转换为Long: {}", userIdObj);
+                return null;
+            }
+        }
+        log.warn("userId claim 类型不匹配: {}", userIdObj);
+        return null;
     }
 
     /**

@@ -19,7 +19,7 @@ spring:
 
   # 🔥 生产环境请注释掉上面的H2配置，使用下面的PostgreSQL配置
   datasource:
-    url: jdbc:postgresql://postgres:5432/speaking_db
+    url: jdbc:postgresql://localhost:5433/speaking_db
     username: postgres
     password: your_password
     driver-class-name: org.postgresql.Driver
