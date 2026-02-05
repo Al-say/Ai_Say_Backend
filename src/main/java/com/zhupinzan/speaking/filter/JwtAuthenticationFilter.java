@@ -108,18 +108,22 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             // 4. 检查 SecurityContext 是否已有认证信息（避免重复认证）
             if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-                // 5. 构造 Spring Security 的 Authentication 对象
+
+                // 5. 从数据库加载用户详细信息
+                var userDetails = userDetailsService.loadUserByUsername(email);
+
+                // 6. 构造 Spring Security 的 Authentication 对象
                 UsernamePasswordAuthenticationToken authentication =
                         new UsernamePasswordAuthenticationToken(
-                                email,  // Principal：用户标识
+                                userDetails,  // Principal: 完整的 UserDetails 对象
                                 null,   // Credentials：密码（已验证，不需要）
-                                Collections.emptyList()  // Authorities：权限列表（暂不使用）
+                                userDetails.getAuthorities()  // Authorities：权限列表
                         );
 
-                // 6. 设置请求详情（IP、Session ID 等）
+                // 7. 设置请求详情（IP、Session ID 等）
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 
-                // 7. 将认证信息注入 SecurityContext
+                // 8. 将认证信息注入 SecurityContext
                 SecurityContextHolder.getContext().setAuthentication(authentication);
 
                 log.debug("JWT 认证成功: email={}, uri={}", email, request.getRequestURI());

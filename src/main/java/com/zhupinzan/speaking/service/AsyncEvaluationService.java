@@ -1,81 +1,127 @@
 package com.zhupinzan.speaking.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.zhupinzan.speaking.model.UserPersona;
 import com.zhupinzan.speaking.model.dto.AsyncEvaluationResponse;
-import com.zhupinzan.speaking.model.dto.EvaluationRequest;
+import com.zhupinzan.speaking.model.dto.DeepSeekEvalResult;
 import com.zhupinzan.speaking.model.entity.EvaluationTask;
 import com.zhupinzan.speaking.repository.EvaluationTaskRepository;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.UUID;
-
+/**
+ * 异步评估任务管理服务
+ * 管理长时间运行的 AI 评估任务，避免 HTTP 超时。
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class AsyncEvaluationService {
 
-    private final DeepSeekEvalService deepSeekService;
-    private final EvaluationTaskRepository taskRepository; // 💉 注入仓库
-    private final ObjectMapper objectMapper; // 用于序列化 JSON
+    private final DeepSeekEvalService deepSeekEvalService;
+    private final EvaluationTaskRepository evaluationTaskRepository;
 
-    @Async("taskExecutor") // 使用我们配置的线程池
-    public void processEvaluation(String taskId, EvaluationRequest request) {
-        // 1. 再次查询任务（确保它是最新的）
-        EvaluationTask task = taskRepository.findById(taskId).orElse(null);
-        if (task == null) {
-            log.error("Task not found for processing: {}", taskId);
-            return;
-        }
-
-        try {
-            // 2. 调用 AI
-            // 假设 deepSeekService.evaluate 返回的是一个对象，我们转成 JSON 存起来
-            Object assessmentResult = deepSeekService.evaluate(request.getTranscript());
-            
-            task.setResult(objectMapper.convertValue(assessmentResult, com.zhupinzan.speaking.model.dto.DeepSeekEvalResult.class));
-            task.setStatus(AsyncEvaluationResponse.TaskStatus.COMPLETED);
-            task.setCompletedAt(LocalDateTime.now());
-            
-        } catch (Exception e) {
-            log.error("Task failed: {}", taskId, e);
-            task.setStatus(AsyncEvaluationResponse.TaskStatus.FAILED);
-            task.setErrorMessage(e.getMessage());
-        } finally {
-            // 3. 💾 最终状态落库
-            taskRepository.save(task);
-        }
-    }
-
-    // 提交任务
-    public String submitTask(EvaluationRequest request, String userEmail) {
+    /**
+     * 提交异步评估任务
+     */
+    public AsyncEvaluationResponse submitEvaluation(UserPersona persona, String scene,
+                                                    String transcript, String userIdentity) {
         String taskId = UUID.randomUUID().toString();
+        log.info("🔐 创建异步评估任务: taskId={}, owner={}, persona={}, scene={}",
+                taskId, userIdentity, persona, scene);
 
-        // 1. 先在数据库占个位
-        EvaluationTask task = new EvaluationTask();
-        task.setId(taskId);
-        task.setUserIdentity(userEmail);
-        task.setTranscript(request.getTranscript());
-        task.setStatus(AsyncEvaluationResponse.TaskStatus.PENDING);
-        taskRepository.save(task);
+        EvaluationTask task = EvaluationTask.builder()
+                .id(taskId)
+                .userIdentity(userIdentity)
+                .persona(persona)
+                .scene(scene)
+                .transcript(transcript)
+                .status(AsyncEvaluationResponse.TaskStatus.PENDING)
+                .progress(0)
+                .build();
+        evaluationTaskRepository.save(task);
 
-        // 2. 触发异步处理
-        processEvaluation(taskId, request);
+        executeEvaluationAsync(taskId, persona, scene, transcript);
 
-        return taskId;
+        return AsyncEvaluationResponse.pending(taskId);
     }
 
-    // 获取单个任务详情
-    public EvaluationTask getTaskResult(String taskId) {
-        return taskRepository.findById(taskId).orElse(null);
+    /**
+     * 异步执行 AI 评估
+     */
+    @Async("taskExecutor")
+    public CompletableFuture<Void> executeEvaluationAsync(String taskId, UserPersona persona,
+                                                          String scene, String transcript) {
+        try {
+            updateTaskStatus(taskId, AsyncEvaluationResponse.processing(taskId, 20));
+            DeepSeekEvalResult result = deepSeekEvalService.evaluate(persona, scene, transcript);
+            updateTaskStatus(taskId, AsyncEvaluationResponse.completed(taskId, result));
+        } catch (Exception e) {
+            log.error("异步评估失败: taskId={}, error={}", taskId, e.getMessage(), e);
+            updateTaskStatus(taskId, AsyncEvaluationResponse.failed(taskId, e.getMessage()));
+        }
+        return CompletableFuture.completedFuture(null);
     }
 
-    // 获取用户历史
-    public List<EvaluationTask> getUserHistory(String userEmail) {
-        return taskRepository.findByUserIdentityOrderByCreatedAtDesc(userEmail);
+    /**
+     * 查询任务状态（校验所有权）
+     */
+    public AsyncEvaluationResponse getTaskStatus(String taskId, String userIdentity) {
+        return evaluationTaskRepository.findById(taskId)
+                .map(task -> {
+                    if (!task.getUserIdentity().equals(userIdentity)) {
+                        log.warn("🚨 访问拒绝: taskId={}, owner={}, requestedBy={}", taskId, task.getUserIdentity(), userIdentity);
+                        return AsyncEvaluationResponse.failed(taskId, "无权访问此任务");
+                    }
+                    return AsyncEvaluationResponse.builder()
+                            .taskId(task.getId())
+                            .status(task.getStatus())
+                            .progress(task.getProgress())
+                            .result(task.getResult())
+                            .errorMessage(task.getErrorMessage())
+                            .createdAt(task.getCreatedAt() != null
+                                    ? LocalDateTime.ofInstant(task.getCreatedAt(), ZoneOffset.UTC)
+                                    : null)
+                            .completedAt(task.getCompletedAt())
+                            .build();
+                })
+                .orElseGet(() -> AsyncEvaluationResponse.failed(taskId, "任务不存在或已过期"));
+    }
+
+    /**
+     * 删除任务（清理资源）
+     */
+    public boolean deleteTask(String taskId, String userIdentity) {
+        return evaluationTaskRepository.findById(taskId)
+                .map(task -> {
+                    if (!task.getUserIdentity().equals(userIdentity)) {
+                        log.warn("🚨 删除拒绝: taskId={}, owner={}, requestedBy={}", taskId, task.getUserIdentity(), userIdentity);
+                        return false;
+                    }
+                    evaluationTaskRepository.delete(task);
+                    return true;
+                })
+                .orElse(false);
+    }
+
+    public List<EvaluationTask> getUserHistory(String userIdentity) {
+        return evaluationTaskRepository.findByUserIdentityOrderByCreatedAtDesc(userIdentity);
+    }
+
+    private void updateTaskStatus(String taskId, AsyncEvaluationResponse response) {
+        evaluationTaskRepository.findById(taskId).ifPresent(task -> {
+            task.setStatus(response.getStatus());
+            task.setProgress(response.getProgress());
+            task.setErrorMessage(response.getErrorMessage());
+            task.setResult(response.getResult());
+            task.setCompletedAt(response.getCompletedAt());
+            evaluationTaskRepository.save(task);
+        });
     }
 }

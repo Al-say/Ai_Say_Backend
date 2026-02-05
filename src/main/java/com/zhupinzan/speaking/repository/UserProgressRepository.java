@@ -2,11 +2,7 @@ package com.zhupinzan.speaking.repository;
 
 import com.zhupinzan.speaking.model.entity.UserProgress;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.repository.query.Param;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.time.LocalDate;
-import java.time.OffsetDateTime;
 import java.util.Optional;
 
 /**
@@ -37,7 +33,7 @@ import java.util.Optional;
  * @version 1.0
  * @since 1.0
  */
-public interface UserProgressRepository extends JpaRepository<UserProgress, Long> {
+public interface UserProgressRepository extends JpaRepository<UserProgress, Long>, UserProgressRepositoryCustom {
 
     /**
      * 根据设备ID查询用户进度
@@ -121,27 +117,11 @@ public interface UserProgressRepository extends JpaRepository<UserProgress, Long
      * - 方法不直接抛出异常，由Spring Data JPA处理
      * - 调用方需要处理数据库约束异常
      */
-    @Transactional
-    default void upsertProgress(
-            @Param("deviceId") String deviceId,
-            @Param("attemptInc") int attemptInc,
-            @Param("durationInc") long durationInc,
-            @Param("today") LocalDate today,
-            @Param("newStreak") int newStreak
-    ) {
-        UserProgress progress = findByDeviceId(deviceId).orElseGet(() -> {
-            UserProgress created = new UserProgress();
-            created.setDeviceId(deviceId);
-            created.setTotalAttempts(0);
-            created.setTotalDurationMs(0L);
-            created.setStreakDays(0);
-            return created;
-        });
-        progress.setTotalAttempts(progress.getTotalAttempts() + attemptInc);
-        progress.setTotalDurationMs(progress.getTotalDurationMs() + durationInc);
-        progress.setLastActiveDate(today);
-        progress.setStreakDays(newStreak);
-        progress.setUpdatedAt(OffsetDateTime.now());
-        save(progress);
-    }
+    void upsertProgress(
+            String deviceId,
+            int attemptInc,
+            long durationInc,
+            LocalDate today,
+            int newStreak
+    );
 }

@@ -3,9 +3,6 @@ package com.zhupinzan.speaking.repository;
 import com.zhupinzan.speaking.model.entity.Device;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.repository.query.Param;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.time.OffsetDateTime;
 import java.util.Optional;
 
 /**
@@ -37,7 +34,7 @@ import java.util.Optional;
  * @version 1.0
  * @since 1.0
  */
-public interface DeviceRepository extends JpaRepository<Device, Long> {
+public interface DeviceRepository extends JpaRepository<Device, Long>, DeviceRepositoryCustom {
 
     /**
      * 设备活跃更新（UPSERT操作）
@@ -97,15 +94,4 @@ public interface DeviceRepository extends JpaRepository<Device, Long> {
      * - 分析设备的首次使用和活跃模式
      */
     Optional<Device> findByDeviceId(@Param("deviceId") String deviceId);
-
-    @Transactional
-    default void upsertTouch(@Param("deviceId") String deviceId) {
-        Device device = findByDeviceId(deviceId).orElseGet(() -> {
-            Device created = new Device();
-            created.setDeviceId(deviceId);
-            return created;
-        });
-        device.setLastSeenAt(OffsetDateTime.now());
-        save(device);
-    }
 }
