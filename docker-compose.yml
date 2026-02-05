@@ -29,7 +29,7 @@ services:
       - postgres
       - minio
     ports:
-      - "2580:2580"
+      - "2581:2580"
     environment:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/speaking_db
       - SPRING_DATASOURCE_USERNAME=postgres
