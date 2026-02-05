@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FindBugsFilter>
+    <!-- 包含规则：检查所有问题 -->
+    <Match>
+        <Class name="~.*"/>
+    </Match>
+
+    <!-- 排除规则：排除一些不重要的警告 -->
+
+    <!-- 排除测试类中的一些警告 -->
+    <Match>
+        <Class name="~.*Test.*"/>
+        <Bug pattern="URF_UNREAD_FIELD"/>
+    </Match>
+
+    <!-- 排除Spring框架相关类的警告 -->
+    <Match>
+        <Class name="~.*Controller.*"/>
+        <Bug pattern="SPRING_CONTROLLER_ON_PATH_VARIABLE_WITHOUT_PATH"/>
+    </Match>
+
+    <!-- 排除Lombok生成的代码警告 -->
+    <Match>
+        <Class name="~.*"/>
+        <Bug pattern="UUF_UNUSED_FIELD"/>
+        <Annotation name="lombok.Data"/>
+    </Match>
+
+    <!-- 排除一些低优先级的警告 -->
+    <Match>
+        <Bug pattern="DM_DEFAULT_ENCODING"/>
+    </Match>
+
+    <Match>
+        <Bug pattern="EI_EXPOSE_REP"/>
+    </Match>
+
+    <!-- 排除特定的类或包 -->
+    <Match>
+        <Package name="~com\.zhupinzan\.speaking\.config.*"/>
+        <Bug pattern="MS_SHOULD_BE_FINAL"/>
+    </Match>
+</FindBugsFilter>

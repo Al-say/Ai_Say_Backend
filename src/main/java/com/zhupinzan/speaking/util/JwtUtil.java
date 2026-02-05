@@ -5,6 +5,7 @@ import io.jsonwebtoken.security.Keys;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import com.zhupinzan.speaking.model.entity.UserAccount; // Added import for UserAccount
 
 import java.nio.charset.StandardCharsets;
 import java.security.Key;
@@ -31,9 +32,9 @@ import java.util.Date;
  * </pre>
  * <p>
  * <b>使用场景：</b>
- * • 登录成功后，调用 `generateToken(email)` 返回给客户端
+ * • 登录成功后，调用 `generateToken(account)` 返回给客户端
  * • 客户端每次请求携带 Token（放在 Authorization 头）
- * • 服务端通过 `validateTokenAndGetEmail(token)` 验证身份
+ * • 服务端通过 `validateTokenAndGetClaims(token)` 验证身份并提取用户信息
  * <p>
  * <b>注意事项：</b>
  * ⚠️ JWT 是无状态的，一旦签发无法主动撤销（除非引入 Redis 黑名单）
@@ -70,38 +71,35 @@ public class JwtUtil {
      * 生成 JWT Token
      * <p>
      * <b>Payload 包含：</b>
-     * • sub（Subject）：用户邮箱，作为唯一标识
+     * • sub（Subject）：用户邮箱或用户名，作为唯一标识
+     * • userId（Custom Claim）：用户ID
      * • iat（Issued At）：签发时间
-     • exp（Expiration）：过期时间
-     * </p>
-     * <p>
-     * <b>调用示例：</b>
-     * <pre>
-     * String token = jwtUtil.generateToken("user@example.com");
-     * // 返回格式：eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyQGV4YW1wbGUuY29tIiwiaWF0...
-     * </pre>
+     * • exp（Expiration）：过期时间
      * </p>
      *
-     * @param email 用户邮箱（作为 Token 的 Subject）
+     * @param account 用户账户对象
      * @return JWT Token 字符串
      */
-    public String generateToken(String email) {
+    public String generateToken(UserAccount account) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + expiration);
 
+        String subject = account.getEmail() != null ? account.getEmail() : account.getUsername();
+
         String token = Jwts.builder()
-                .setSubject(email)
+                .setSubject(subject)
+                .claim("userId", account.getId()) // Add userId as a custom claim
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
                 .signWith(getSigningKey(), SignatureAlgorithm.HS256)
                 .compact();
 
-        log.debug("生成 JWT Token: email={}, expiresAt={}", email, expiryDate);
+        log.debug("生成 JWT Token: subject={}, userId={}, expiresAt={}", subject, account.getId(), expiryDate);
         return token;
     }
 
     /**
-     * 验证 Token 并提取用户邮箱
+     * 验证 Token 并返回所有 Claims
      * <p>
      * <b>验证内容：</b>
      * • 签名是否正确（防篡改）
@@ -117,21 +115,16 @@ public class JwtUtil {
      * </p>
      *
      * @param token JWT Token 字符串
-     * @return 用户邮箱（从 Token 的 Subject 中提取）
+     * @return Claims 对象，包含所有Payload信息
      * @throws JwtException 如果 Token 无效或过期
      */
-    public String validateTokenAndGetEmail(String token) {
+    public Claims validateTokenAndGetClaims(String token) {
         try {
-            Claims claims = Jwts.parserBuilder()
+            return Jwts.parserBuilder()
                     .setSigningKey(getSigningKey())
                     .build()
                     .parseClaimsJws(token)
                     .getBody();
-
-            String email = claims.getSubject();
-            log.debug("Token 验证成功: email={}", email);
-            return email;
-
         } catch (ExpiredJwtException e) {
             log.warn("Token 已过期: {}", e.getMessage());
             throw new JwtException("Token 已过期，请重新登录");
@@ -148,6 +141,20 @@ public class JwtUtil {
     }
 
     /**
+     * 验证 Token 并提取用户邮箱（现在改为提取Subject）
+     * <p>
+     * 用于需要静默检查的场景，不会抛出异常。
+     * </p>
+     *
+     * @param token JWT Token 字符串
+     * @return Subject (email or username) from the token
+     * @throws JwtException If token is invalid or expired
+     */
+    public String validateTokenAndGetSubject(String token) {
+        return validateTokenAndGetClaims(token).getSubject();
+    }
+
+    /**
      * 检查 Token 是否有效（不抛出异常版本）
      * <p>
      * 用于需要静默检查的场景，不会抛出异常。
@@ -158,7 +165,7 @@ public class JwtUtil {
      */
     public boolean isTokenValid(String token) {
         try {
-            validateTokenAndGetEmail(token);
+            validateTokenAndGetClaims(token);
             return true;
         } catch (JwtException e) {
             return false;

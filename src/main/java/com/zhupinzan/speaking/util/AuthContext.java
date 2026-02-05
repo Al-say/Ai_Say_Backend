@@ -1,6 +1,7 @@
 package com.zhupinzan.speaking.util;
 
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.extern.slf4j.Slf4j; // Added Slf4j import
 
 /**
  * 身份认证上下文工具类，提供从HTTP请求中获取当前认证用户信息的便捷方法。
@@ -105,6 +106,7 @@ import jakarta.servlet.http.HttpServletRequest;
  * @see CurrentUserInfo
  * @see CurrentUser
  */
+@Slf4j // Added Slf4j for logging
 public final class AuthContext {
 
     // 私有构造函数，防止该工具类被实例化。
@@ -119,6 +121,32 @@ public final class AuthContext {
     public static String getUserId(HttpServletRequest request) {
         var v = request.getAttribute("auth.userId");
         return v == null ? null : v.toString();
+    }
+
+    /**
+     * 从HTTP请求中获取当前用户的ID（Long类型）。
+     *
+     * @param request HTTP请求对象。
+     * @return 用户的ID（Long类型），如果请求中不存在该信息或无法转换为Long，则返回null。
+     */
+    public static Long getUserIdAsLong(HttpServletRequest request) {
+        var v = request.getAttribute("auth.userId");
+        if (v == null) {
+            return null;
+        }
+        if (v instanceof Long) {
+            return (Long) v;
+        }
+        if (v instanceof String) {
+            try {
+                return Long.parseLong((String) v);
+            } catch (NumberFormatException e) {
+                log.warn("请求属性 'auth.userId' 无法转换为Long类型: {}", v, e);
+                return null;
+            }
+        }
+        log.warn("请求属性 'auth.userId' 类型不匹配: {}", v);
+        return null;
     }
 
     /**

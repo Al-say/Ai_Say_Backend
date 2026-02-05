@@ -116,20 +116,15 @@ public class AuthUserService {
      */
     public UserAccount requireAccount(CurrentUserInfo user) {
         // 【第一层】登录状态校验
-        if (user == null || user.userId() == null || user.userId().isBlank()) {
+        if (user == null || user.userId() == null) { // userId is now Long, no isBlank()
             log.warn("用户未登录或登录信息为空");
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "请先登录");
         }
 
         // 【第二层】用户ID格式校验
-        Long userId;
-        try {
-            userId = Long.parseLong(user.userId());
-            if (userId <= 0) {
-                throw new NumberFormatException("用户ID必须为正数");
-            }
-        } catch (NumberFormatException e) {
-            log.warn("用户ID格式错误: {}", user.userId());
+        Long userId = user.userId(); // userId is already Long
+        if (userId <= 0) {
+            log.warn("用户ID格式错误: {}", userId);
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "无效的用户ID格式");
         }
 
@@ -140,7 +135,8 @@ public class AuthUserService {
         }
 
         // 🔥 关键补丁：如果是开发模式虚拟用户，自动创建账户
-        if ("1".equals(user.userId()) && "dev_user_apple_sub".equals(user.appleSub())) {
+        // Note: appleSub is String, keep isBlank() for it.
+        if (userId.equals(1L) && user.appleSub() != null && !user.appleSub().isBlank() && "dev_user_apple_sub".equals(user.appleSub())) {
             log.info("⚠️ [Dev Mode] 自动创建虚拟用户账户");
             var devAccount = new UserAccount();
             devAccount.setId(1L);
@@ -234,20 +230,16 @@ public class AuthUserService {
         deviceRepository.upsertTouch(cleanedDeviceId);
 
         // 【第三层】用户身份验证
-        if (user == null || user.userId() == null || user.userId().isBlank()) {
+        if (user == null || user.userId() == null) { // userId is now Long, no isBlank()
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "请先登录后再绑定设备");
         }
 
-        Long userId;
-        try {
-            userId = Long.parseLong(user.userId());
-            if (userId <= 0) {
-                throw new NumberFormatException("用户ID必须为正数");
-            }
-        } catch (NumberFormatException e) {
-            log.warn("用户ID格式错误: {}", user.userId());
+        Long userId = user.userId(); // userId is already Long
+        if (userId <= 0) {
+            log.warn("用户ID格式错误: {}", userId);
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "无效的用户ID格式");
         }
+
 
         // 【第四层】获取用户账号并更新设备绑定
         var account = userAccountRepository.findById(userId)
@@ -382,9 +374,7 @@ public class AuthUserService {
      * @throws Exception 令牌生成异常
      */
     private String generateAccessToken(UserAccount account) {
-        // 使用 JwtUtil 生成 JWT Token
-        String identifier = account.getEmail() != null ? account.getEmail() : account.getUsername();
-        return jwtUtil.generateToken(identifier);
+        return jwtUtil.generateToken(account);
     }
 
     /**

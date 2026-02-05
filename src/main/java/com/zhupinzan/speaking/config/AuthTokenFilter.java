@@ -1,6 +1,7 @@
 package com.zhupinzan.speaking.config;
 
 import com.zhupinzan.speaking.util.JwtUtil;
+import io.jsonwebtoken.Claims; // Added import for Claims
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -35,11 +36,13 @@ public class AuthTokenFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
         throws ServletException, IOException {
 
+        // 步骤 1: 判断请求是否为公开访问路径
         if (isPublic(request)) {
             filterChain.doFilter(request, response);
             return;
         }
 
+        // 步骤 2: 从请求头中提取Bearer Token
         var auth = request.getHeader("Authorization");
         if (auth == null || !auth.startsWith("Bearer ")) {
             writeUnauthorized(response, "缺少 Bearer Token");
@@ -48,33 +51,61 @@ public class AuthTokenFilter extends OncePerRequestFilter {
         var token = auth.substring("Bearer ".length()).trim();
 
         try {
-            String email = jwtUtil.validateTokenAndGetEmail(token);
-            // 简单的用户标识设置，这里的userId和appleSub可以根据业务从JWT或数据库中获取
-            // 为了简化，我们假设sub就是userId
-            request.setAttribute("auth.userId", email);
-            request.setAttribute("auth.appleSub", null); // Apple登录已移除
+            // 步骤 3: 验证JWT并提取Claims
+            Claims claims = jwtUtil.validateTokenAndGetClaims(token);
 
+            // 步骤 4: 从Claims中提取用户信息
+            Long userId = claims.get("userId", Long.class); // Get userId from custom claim
+            String subject = claims.getSubject(); // Get subject (email or username)
+
+            if (userId == null) {
+                writeUnauthorized(response, "Token 中缺少用户ID信息");
+                return;
+            }
+
+            // 步骤 5: 将用户信息存入请求属性
+            request.setAttribute("auth.userId", String.valueOf(userId));
+            request.setAttribute("auth.email", subject);
+            request.setAttribute("auth.appleSub", null); // Apple登录已移除，此字段不再从Token获取
+
+            // 放行请求到后续处理程序
             filterChain.doFilter(request, response);
         } catch (JwtException e) {
+            // JWT验证失败（过期、签名错误、格式错误等）
             writeUnauthorized(response, e.getMessage());
+        } catch (Exception e) {
+            // 其他未知异常
+            logger.error("JWT认证过滤器异常", e);
+            writeUnauthorized(response, "Token 校验异常");
         }
     }
 
+    /**
+     * 判断请求的路径是否为公开访问路径
+     */
     private boolean isPublic(HttpServletRequest request) {
         var path = request.getRequestURI();
 
+        // OPTIONS请求通常用于CORS预检，应直接放行
         if ("OPTIONS".equalsIgnoreCase(request.getMethod())) return true;
 
+        // 注册和登录接口
         if (path.startsWith("/api/auth/register") || path.startsWith("/api/auth/login")) {
             return true;
         }
+        // 每日挑战接口（现在默认是公开的）
         if (path.startsWith("/api/home/daily")) return true;
+        // Spring Boot Actuator监控端点
         if (path.startsWith("/actuator")) return true;
+        // 应用根路径
         if (path.equals("/")) return true;
 
         return false;
     }
 
+    /**
+     * 向客户端写入401 Unauthorized错误响应
+     */
     private void writeUnauthorized(HttpServletResponse response, String message) throws IOException {
         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
         response.setContentType("application/json;charset=UTF-8");

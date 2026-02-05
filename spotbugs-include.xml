@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FindBugsFilter>
+    <!-- 包含所有Java文件进行检查 -->
+    <Match>
+        <Source name="~.*\.java$"/>
+    </Match>
+</FindBugsFilter>

@@ -84,6 +84,6 @@ package com.zhupinzan.speaking.util;
  * @see AuthContext
  */
 public record CurrentUserInfo(
-    String userId,
+    Long userId,
     String appleSub
 ) {}

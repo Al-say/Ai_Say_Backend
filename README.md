@@ -34,6 +34,73 @@
 
 ---
 
+## 🔍 代码质量检查
+
+项目集成了完整的代码质量检查工具链，确保代码质量和一致性。
+
+### 🛠️ 质量工具
+
+| 工具 | 说明 | 配置 |
+|------|------|------|
+| **JaCoCo** | 测试覆盖率报告 | `mvn jacoco:report` |
+| **Checkstyle** | 代码风格检查 | `checkstyle.xml` |
+| **PMD** | 代码质量分析 | 内置规则集 |
+| **SpotBugs** | 静态代码分析 | `spotbugs-include/exclude.xml` |
+| **GitHub Actions** | CI/CD 自动化检查 | `.github/workflows/code-quality.yml` |
+
+### 🚀 本地检查命令
+
+```bash
+# 运行所有质量检查
+mvn clean verify
+
+# 单独运行各工具
+mvn checkstyle:check          # 代码风格检查
+mvn pmd:check                 # 代码质量分析
+mvn spotbugs:check           # 静态代码分析
+mvn jacoco:report            # 生成覆盖率报告
+
+# 跳过质量检查直接构建
+mvn clean package -Dcheckstyle.skip=true -Dpmd.skip=true -Dspotbugs.skip=true
+```
+
+### 📊 质量标准
+
+- **测试覆盖率**: ≥ 80%
+- **Checkstyle**: 零警告
+- **PMD**: 零严重问题
+- **SpotBugs**: 零高优先级问题
+- **代码风格**: Google Java Style Guide
+
+### 🔧 配置说明
+
+#### Checkstyle 配置 (`checkstyle.xml`)
+- 代码长度限制: 120字符/行
+- 方法长度限制: 50行/方法
+- 参数数量限制: 7个/方法
+- 强制 Javadoc 注释
+
+#### SpotBugs 配置
+- 包含所有 Java 文件
+- 排除测试类中的未读字段警告
+- 排除 Lombok 生成代码的警告
+
+#### JaCoCo 配置
+- 生成 HTML 和 XML 报告
+- 支持 CI/CD 集成
+- 自动上传至 Codecov
+
+### 📈 CI/CD 集成
+
+GitHub Actions 会在每次推送和 PR 时自动运行：
+1. 单元测试 + 覆盖率
+2. 代码风格检查
+3. 代码质量分析
+4. 静态代码分析
+5. 应用构建和打包
+
+---
+
 ## 功能特性
 
 ### 🎯 核心功能

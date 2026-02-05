@@ -102,7 +102,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         try {
             // 3. 验证 Token 并提取用户邮箱 (作为 JWT 的主体)
-            String email = jwtUtil.validateTokenAndGetEmail(token);
+            String email = jwtUtil.validateTokenAndGetSubject(token);
 
             // 4. 检查 SecurityContext 是否已有认证信息（避免重复认证）
             // 并且确保从 JWT 中提取的 email 不为空
