@@ -1,4 +1,15 @@
 services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: speaking_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: your_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
   minio:
     image: minio/minio
     command: server /data --console-address ":9001"
@@ -8,3 +19,29 @@ services:
     environment:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - minio_data:/data
+
+  a_say_backend:
+    image: a_say_backend:latest
+    build: .
+    depends_on:
+      - postgres
+      - minio
+    ports:
+      - "2580:2580"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/speaking_db
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=your_password
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+      - SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT=org.hibernate.dialect.PostgreSQLDialect
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - JWT_SECRET=YourSuperSecretKeyHereMustBeVeryLongAndComplex123!AtLeast32Characters
+      - S3_ENDPOINT=http://minio:9000
+      - S3_ACCESS_KEY=minioadmin
+      - S3_SECRET_KEY=minioadmin
+
+volumes:
+  postgres_data:
+  minio_data:
