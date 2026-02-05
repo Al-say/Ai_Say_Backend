@@ -199,4 +199,20 @@ public class UserAccount {
     protected void onUpdate() {
         updatedAt = OffsetDateTime.now();
     }
+
+    /**
+     * 获取昵称（兼容 JWT 认证系统）
+     * 返回 displayName 作为昵称
+     */
+    public String getNickname() {
+        return displayName;
+    }
+
+    /**
+     * 设置昵称（兼容 JWT 认证系统）
+     * 设置到 displayName 字段
+     */
+    public void setNickname(String nickname) {
+        this.displayName = nickname;
+    }
 }

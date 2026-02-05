@@ -37,9 +37,14 @@ spring:
 # DeepSeek AI API 配置 - 使用环境变量保护密钥
 deepseek:
   api:
-    key: ${DEEPSEEK_API_KEY:dummy-key}  # 环境变量优先，本地开发可用 dummy
+    key: ${DEEPSEEK_API_KEY:dummy-key}  # 环境变量优先,本地开发可用 dummy
     url: ${DEEPSEEK_API_URL:https://api.deepseek.com/chat/completions}
     model: ${DEEPSEEK_MODEL:deepseek-chat}
+
+# JWT 认证配置 - 使用环境变量保护密钥
+jwt:
+  secret: ${JWT_SECRET:YourSuperSecretKeyHereMustBeVeryLongAndComplex123!AtLeast32Characters}
+  expiration: ${JWT_EXPIRATION:86400000}  # 24 小时（毫秒）
 
 # 百度 ASR 配置 - 使用环境变量保护密钥
 baidu:

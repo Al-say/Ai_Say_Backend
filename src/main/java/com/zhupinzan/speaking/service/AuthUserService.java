@@ -5,14 +5,13 @@ import com.zhupinzan.speaking.model.dto.AuthDTO;
 import com.zhupinzan.speaking.repository.UserAccountRepository;
 import com.zhupinzan.speaking.repository.DeviceRepository;
 import com.zhupinzan.speaking.util.CurrentUserInfo;
+import com.zhupinzan.speaking.util.JwtUtil;
 import com.zhupinzan.speaking.model.entity.UserAccount;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.server.ResponseStatusException;
 import lombok.extern.slf4j.Slf4j;
-
-import java.lang.reflect.Method;
 
 /**
  * 用户认证服务 - 设备绑定与身份验证管理
@@ -79,6 +78,13 @@ public class AuthUserService {
     private final AppleSignInService appleSignInService;
 
     /**
+     * JWT工具类
+     * <p>
+     * 用于生成和验证JWT令牌
+     */
+    private final JwtUtil jwtUtil;
+
+    /**
      * 构造函数注入 - 依赖注入模式
      * <p>
      * 通过构造函数注入所有依赖的Repository，确保：
@@ -90,12 +96,14 @@ public class AuthUserService {
                           DeviceRepository deviceRepository,
                           PasswordEncoder passwordEncoder,
                           AppleSignInConfig appleSignInConfig,
-                          AppleSignInService appleSignInService) {
+                          AppleSignInService appleSignInService,
+                          JwtUtil jwtUtil) {
         this.userAccountRepository = userAccountRepository;
         this.deviceRepository = deviceRepository;
         this.passwordEncoder = passwordEncoder;
         this.appleSignInConfig = appleSignInConfig;
         this.appleSignInService = appleSignInService;
+        this.jwtUtil = jwtUtil;
     }
 
   // ====== 核心认证方法 ======
@@ -345,13 +353,7 @@ public class AuthUserService {
         userAccountRepository.save(account);
 
         // 生成JWT令牌
-        String accessToken;
-        try {
-            accessToken = generateAccessToken(account);
-        } catch (Exception e) {
-            log.error("生成JWT令牌失败", e);
-            throw new RuntimeException("登录失败，请重试");
-        }
+        String accessToken = generateAccessToken(account);
 
         // 构造响应
         AuthDTO.AuthUser authUser = new AuthDTO.AuthUser(
@@ -377,11 +379,10 @@ public class AuthUserService {
      * @return JWT访问令牌
      * @throws Exception 令牌生成异常
      */
-    private String generateAccessToken(UserAccount account) throws Exception {
-        // 通过反射调用AppleSignInService的私有方法
-        Method method = AppleSignInService.class.getDeclaredMethod("generateAccessToken", UserAccount.class);
-        method.setAccessible(true);
-        return (String) method.invoke(appleSignInService, account);
+    private String generateAccessToken(UserAccount account) {
+        // 使用 JwtUtil 生成 JWT Token
+        String identifier = account.getEmail() != null ? account.getEmail() : account.getUsername();
+        return jwtUtil.generateToken(identifier);
     }
 
     /**

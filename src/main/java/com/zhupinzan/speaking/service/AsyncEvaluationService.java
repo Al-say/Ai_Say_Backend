@@ -66,33 +66,51 @@ public class AsyncEvaluationService {
     private final Map<String, AsyncEvaluationResponse> taskStore = new ConcurrentHashMap<>();
 
     /**
+     * 🔐 任务所有者映射
+     * <p>
+     * Key: TaskID<br>
+     * Value: 用户身份（email/username）
+     * <p>
+     * 用于验证任务访问权限，确保用户只能访问自己的任务。
+     * </p>
+     */
+    private final Map<String, String> taskOwnerMap = new ConcurrentHashMap<>();
+
+    /**
      * 提交异步评估任务
      * <p>
      * <b>工作流程：</b><br>
      * 1. 生成唯一 TaskID<br>
-     * 2. 创建 PENDING 状态的任务<br>
-     * 3. 异步执行 AI 评估<br>
-     * 4. 立即返回 TaskID 给客户端
+     * 2. 🔐 绑定任务与用户<br>
+     * 3. 创建 PENDING 状态的任务<br>
+     * 4. 异步执行 AI 评估<br>
+     * 5. 立即返回 TaskID 给客户端
      * </p>
      *
-     * @param persona    用户画像类型
-     * @param scene      评估场景
-     * @param transcript 转写文本
+     * @param persona      用户画像类型
+     * @param scene        评估场景
+     * @param transcript   转写文本
+     * @param userIdentity 🔐 用户身份（email/username）
      * @return 任务响应对象（包含 TaskID）
      */
-    public AsyncEvaluationResponse submitEvaluation(UserPersona persona, String scene, String transcript) {
+    public AsyncEvaluationResponse submitEvaluation(UserPersona persona, String scene, 
+                                                     String transcript, String userIdentity) {
         // 1. 生成唯一任务 ID
         String taskId = UUID.randomUUID().toString();
-        log.info("创建异步评估任务: taskId={}, persona={}, scene={}", taskId, persona, scene);
+        log.info("🔐 创建异步评估任务: taskId={}, owner={}, persona={}, scene={}", 
+                 taskId, userIdentity, persona, scene);
 
-        // 2. 初始化任务状态
+        // 2. 🔐 绑定任务与用户
+        taskOwnerMap.put(taskId, userIdentity);
+
+        // 3. 初始化任务状态
         AsyncEvaluationResponse response = AsyncEvaluationResponse.pending(taskId);
         taskStore.put(taskId, response);
 
-        // 3. 异步执行评估（不阻塞当前线程）
+        // 4. 异步执行评估（不阻塞当前线程）
         executeEvaluationAsync(taskId, persona, scene, transcript);
 
-        // 4. 立即返回任务信息
+        // 5. 立即返回任务信息
         return response;
     }
 
@@ -145,16 +163,29 @@ public class AsyncEvaluationService {
      * 查询任务状态
      * <p>
      * 客户端定期调用此方法（如每 2 秒轮询一次）检查任务进度。
+     * 🔐 只有任务所有者才能查询。
      * </p>
      *
-     * @param taskId 任务 ID
+     * @param taskId       任务 ID
+     * @param userIdentity 🔐 请求者身份
      * @return 任务响应对象（包含状态和结果）
      */
-    public AsyncEvaluationResponse getTaskStatus(String taskId) {
-        AsyncEvaluationResponse response = taskStore.get(taskId);
-        if (response == null) {
+    public AsyncEvaluationResponse getTaskStatus(String taskId, String userIdentity) {
+        // 🔐 验证任务所有权
+        String owner = taskOwnerMap.get(taskId);
+        if (owner == null) {
             log.warn("任务不存在或已过期: taskId={}", taskId);
             return AsyncEvaluationResponse.failed(taskId, "任务不存在或已过期");
+        }
+        if (!owner.equals(userIdentity)) {
+            log.warn("🚨 访问拒绝: taskId={}, owner={}, requestedBy={}", taskId, owner, userIdentity);
+            return AsyncEvaluationResponse.failed(taskId, "无权访问此任务");
+        }
+
+        AsyncEvaluationResponse response = taskStore.get(taskId);
+        if (response == null) {
+            log.warn("任务状态丢失: taskId={}", taskId);
+            return AsyncEvaluationResponse.failed(taskId, "任务状态异常");
         }
         return response;
     }
@@ -163,13 +194,25 @@ public class AsyncEvaluationService {
      * 删除任务（清理资源）
      * <p>
      * 客户端获取结果后应主动调用此方法，释放服务器资源。
+     * 🔐 只有任务所有者才能删除。
      * </p>
      *
-     * @param taskId 任务 ID
+     * @param taskId       任务 ID
+     * @param userIdentity 🔐 请求者身份
+     * @return true 如果删除成功，false 如果无权或任务不存在
      */
-    public void deleteTask(String taskId) {
+    public boolean deleteTask(String taskId, String userIdentity) {
+        // 🔐 验证任务所有权
+        String owner = taskOwnerMap.get(taskId);
+        if (owner == null || !owner.equals(userIdentity)) {
+            log.warn("🚨 删除拒绝: taskId={}, owner={}, requestedBy={}", taskId, owner, userIdentity);
+            return false;
+        }
+
         taskStore.remove(taskId);
-        log.info("任务已删除: taskId={}", taskId);
+        taskOwnerMap.remove(taskId);
+        log.info("任务已删除: taskId={}, owner={}", taskId, userIdentity);
+        return true;
     }
 
     /**

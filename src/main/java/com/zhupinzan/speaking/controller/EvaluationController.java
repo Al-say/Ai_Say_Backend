@@ -9,6 +9,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -85,21 +87,26 @@ public class EvaluationController {
     public ResponseEntity<AsyncEvaluationResponse> submitEvaluation(
             @Valid @RequestBody EvaluationRequest request) {
 
-        log.info("收到评估请求: persona={}, scene={}, transcriptLength={}",
-                request.getPersona(), request.getScene(), request.getTranscript().length());
+        // 🔐 从 SecurityContext 获取当前登录用户身份
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String userIdentity = authentication != null ? authentication.getName() : "anonymous";
+
+        log.info("收到评估请求: user={}, persona={}, scene={}, transcriptLength={}",
+                userIdentity, request.getPersona(), request.getScene(), request.getTranscript().length());
 
         try {
             // 1. 参数转换和验证
             UserPersona persona = UserPersona.valueOf(request.getPersona().toUpperCase());
 
-            // 2. 提交异步任务
+            // 2. 提交异步任务（绑定用户身份）
             AsyncEvaluationResponse response = asyncEvaluationService.submitEvaluation(
                     persona,
                     request.getScene(),
-                    request.getTranscript()
+                    request.getTranscript(),
+                    userIdentity  // 🔐 传递用户身份
             );
 
-            log.info("任务创建成功: taskId={}", response.getTaskId());
+            log.info("任务创建成功: taskId={}, owner={}", response.getTaskId(), userIdentity);
 
             // 3. 返回任务信息
             return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
@@ -156,9 +163,14 @@ public class EvaluationController {
      */
     @GetMapping("/{taskId}")
     public ResponseEntity<AsyncEvaluationResponse> getTaskStatus(@PathVariable String taskId) {
-        log.debug("查询任务状态: taskId={}", taskId);
+        // 🔐 获取当前用户身份
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String userIdentity = authentication != null ? authentication.getName() : "anonymous";
 
-        AsyncEvaluationResponse response = asyncEvaluationService.getTaskStatus(taskId);
+        log.debug("查询任务状态: taskId={}, requestedBy={}", taskId, userIdentity);
+
+        // 🔐 验证任务所有权
+        AsyncEvaluationResponse response = asyncEvaluationService.getTaskStatus(taskId, userIdentity);
 
         // 根据任务状态返回不同的 HTTP 状态码
         return switch (response.getStatus()) {
@@ -179,8 +191,17 @@ public class EvaluationController {
      */
     @DeleteMapping("/{taskId}")
     public ResponseEntity<Void> deleteTask(@PathVariable String taskId) {
-        log.info("删除任务: taskId={}", taskId);
-        asyncEvaluationService.deleteTask(taskId);
+        // 🔐 获取当前用户身份
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String userIdentity = authentication != null ? authentication.getName() : "anonymous";
+
+        log.info("删除任务: taskId={}, requestedBy={}", taskId, userIdentity);
+
+        // 🔐 验证所有权后删除
+        boolean deleted = asyncEvaluationService.deleteTask(taskId, userIdentity);
+        if (!deleted) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         return ResponseEntity.noContent().build();
     }
 
