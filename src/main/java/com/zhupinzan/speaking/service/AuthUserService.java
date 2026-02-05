@@ -1,6 +1,5 @@
 package com.zhupinzan.speaking.service;
 
-import com.zhupinzan.speaking.config.AppleSignInConfig;
 import com.zhupinzan.speaking.model.LoginType;
 import com.zhupinzan.speaking.model.dto.AuthDTO;
 import com.zhupinzan.speaking.repository.UserAccountRepository;
@@ -8,14 +7,14 @@ import com.zhupinzan.speaking.repository.DeviceRepository;
 import com.zhupinzan.speaking.util.CurrentUserInfo;
 import com.zhupinzan.speaking.util.JwtUtil;
 import com.zhupinzan.speaking.model.entity.UserAccount;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.web.server.ResponseStatusException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.web.server.ResponseStatusException;
+
 
 /**
  * 用户认证服务 - 设备绑定与身份验证管理
@@ -38,7 +37,7 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Service
 @Slf4j
-public class AuthUserService implements UserDetailsService {
+public class AuthUserService {
 
     /**
      * 用户账号数据仓库
@@ -68,20 +67,6 @@ public class AuthUserService implements UserDetailsService {
     private final PasswordEncoder passwordEncoder;
 
     /**
-     * Apple登录配置
-     * <p>
-     * 提供JWT令牌生成和配置信息
-     */
-    private final AppleSignInConfig appleSignInConfig;
-
-    /**
-     * Apple登录服务
-     * <p>
-     * 用于生成JWT令牌
-     */
-    private final AppleSignInService appleSignInService;
-
-    /**
      * JWT工具类
      * <p>
      * 用于生成和验证JWT令牌
@@ -100,15 +85,11 @@ public class AuthUserService implements UserDetailsService {
     public AuthUserService(UserAccountRepository userAccountRepository,
                           DeviceRepository deviceRepository,
                           PasswordEncoder passwordEncoder,
-                          AppleSignInConfig appleSignInConfig,
-                          AppleSignInService appleSignInService,
                           JwtUtil jwtUtil,
                           LoginHistoryService loginHistoryService) {
         this.userAccountRepository = userAccountRepository;
         this.deviceRepository = deviceRepository;
         this.passwordEncoder = passwordEncoder;
-        this.appleSignInConfig = appleSignInConfig;
-        this.appleSignInService = appleSignInService;
         this.jwtUtil = jwtUtil;
         this.loginHistoryService = loginHistoryService;
     }
@@ -303,18 +284,18 @@ public class AuthUserService implements UserDetailsService {
      * @param req 注册请求DTO
      * @throws IllegalArgumentException 当参数无效或用户名/邮箱已存在时
      */
-    public void register(AuthDTO.RegisterReq req) {
+    public AuthDTO.AuthResp register(AuthDTO.RegisterReq req) {
         log.info("开始用户注册，用户名: {}", req.username());
 
         // 验证用户名唯一性
         if (userAccountRepository.findByUsername(req.username()).isPresent()) {
-            throw new IllegalArgumentException("用户名已存在");
+            throw new IllegalStateException("用户名已存在");
         }
 
         // 验证邮箱唯一性（如果提供）
         if (req.email() != null && !req.email().isBlank()) {
             if (userAccountRepository.findByEmail(req.email()).isPresent()) {
-                throw new IllegalArgumentException("邮箱已被注册");
+                throw new IllegalStateException("邮箱已被注册");
             }
         }
 
@@ -325,8 +306,20 @@ public class AuthUserService implements UserDetailsService {
         account.setEmail(req.email());
         account.setDisplayName(req.displayName() != null ? req.displayName() : req.username());
 
-        userAccountRepository.save(account);
-        log.info("用户注册成功，用户名: {}", req.username());
+        UserAccount savedAccount = userAccountRepository.save(account);
+        log.info("用户注册成功，用户ID: {}, 用户名: {}", savedAccount.getId(), savedAccount.getUsername());
+
+        // 注册成功后直接生成并返回 JWT token
+        String accessToken = generateAccessToken(savedAccount);
+        AuthDTO.AuthUser authUser = new AuthDTO.AuthUser(
+            savedAccount.getId(),
+            savedAccount.getAppleSub(), // 新注册的用户appleSub可能为空
+            savedAccount.getEmail(),
+            savedAccount.getEmailVerified(),
+            savedAccount.getDisplayName(),
+            savedAccount.getDeviceId() // 新注册的用户deviceId可能为空
+        );
+        return new AuthDTO.AuthResp(accessToken, 3600L, authUser); // 默认1小时过期
     }
 
     /**
@@ -344,15 +337,16 @@ public class AuthUserService implements UserDetailsService {
      * @throws IllegalArgumentException 当用户名不存在或密码错误时
      */
     public AuthDTO.AuthResp login(AuthDTO.LoginReq req) {
-        log.info("开始用户登录，用户名: {}", req.username());
+        log.info("开始用户登录，用户名或邮箱: {}", req.username());
 
-        // 根据用户名查找用户
-        UserAccount account = userAccountRepository.findByUsername(req.username())
-                .orElseThrow(() -> new IllegalArgumentException("用户名不存在"));
+        // 根据用户名或邮箱查找用户
+        UserAccount account = userAccountRepository.findByEmail(req.username())
+                .or(() -> userAccountRepository.findByUsername(req.username()))
+                .orElseThrow(() -> new UsernameNotFoundException("用户名或邮箱不存在: " + req.username()));
 
         // 验证密码
         if (!passwordEncoder.matches(req.password(), account.getPasswordHash())) {
-            throw new IllegalArgumentException("密码错误");
+            throw new BadCredentialsException("密码错误");
         }
 
         // 更新最后登录时间
@@ -373,7 +367,7 @@ public class AuthUserService implements UserDetailsService {
             account.getDeviceId()
         );
 
-        log.info("用户登录成功，用户名: {}", req.username());
+        log.info("用户登录成功，用户ID: {}", account.getId());
         return new AuthDTO.AuthResp(accessToken, 3600L, authUser); // 默认1小时过期
     }
 
@@ -401,13 +395,5 @@ public class AuthUserService implements UserDetailsService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "账户不能为空");
         }
         return userAccountRepository.save(account);
-    }
-
-    @Override
-    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        // The "username" for our JWT is the email address.
-        return userAccountRepository.findByEmail(username)
-                .orElseThrow(() ->
-                        new UsernameNotFoundException("User not found with email: " + username));
     }
 }

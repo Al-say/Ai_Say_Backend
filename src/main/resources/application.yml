@@ -6,23 +6,23 @@ spring:
     name: speaking-assessment
 
   # H2 Database Configuration for local development and testing
-  datasource:
-    url: jdbc:h2:mem:testdb;MODE=PostgreSQL;DB_CLOSE_DELAY=-1
-    driverClassName: org.h2.Driver
-    username: sa
-    password: password
+  # datasource:
+  #   url: jdbc:h2:mem:testdb;MODE=PostgreSQL;DB_CLOSE_DELAY=-1
+  #   driverClassName: org.h2.Driver
+  #   username: sa
+  #   password: password
 
-  h2:
-    console:
-      enabled: true
-      path: /h2-console
+  # h2:
+  #   console:
+  #     enabled: true
+  #     path: /h2-console
 
   # 🔥 生产环境请注释掉上面的H2配置，使用下面的PostgreSQL配置
-  # datasource:
-  #   url: jdbc:postgresql://localhost:5432/speaking_db
-  #   username: postgres
-  #   password: your_password
-  #   driver-class-name: org.postgresql.Driver
+  datasource:
+    url: jdbc:postgresql://postgres:5432/speaking_db
+    username: postgres
+    password: your_password
+    driver-class-name: org.postgresql.Driver
 
   jpa:
     hibernate:
@@ -31,8 +31,8 @@ spring:
     properties:
       hibernate:
         format_sql: true
-        dialect: org.hibernate.dialect.H2Dialect
-    # database-platform: org.hibernate.dialect.H2Dialect  # 注释掉，因为在 properties 下
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
 
 # DeepSeek AI API 配置 - 使用环境变量保护密钥
 deepseek:

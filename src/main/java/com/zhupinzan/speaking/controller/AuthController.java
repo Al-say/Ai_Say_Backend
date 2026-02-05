@@ -2,7 +2,6 @@ package com.zhupinzan.speaking.controller;
 
 import com.zhupinzan.speaking.model.dto.AuthDTO;
 import com.zhupinzan.speaking.service.AuthUserService;
-import com.zhupinzan.speaking.service.AppleSignInService;
 import com.zhupinzan.speaking.util.CurrentUser;
 import com.zhupinzan.speaking.util.CurrentUserInfo;
 import org.slf4j.Logger;
@@ -65,17 +64,6 @@ public class AuthController {
      * - 创建或更新本地用户账户
      * - 生成系统访问令牌
      */
-    private final AppleSignInService appleSignInService;
-
-    /**
-     * 认证用户服务
-     * <p>
-     * 提供用户认证相关的核心功能：
-     * - 用户身份管理
-     * - 设备ID绑定和验证
-     * - 用户进度追踪
-     * - 权限控制
-     */
     private final AuthUserService authUserService;
 
     /**
@@ -84,11 +72,9 @@ public class AuthController {
      * 通过构造函数注入所需的依赖服务，遵循Spring的依赖注入最佳实践。
      * 这使得控制器可以独立于具体的实现进行单元测试。
      *
-     * @param appleSignInService  Apple ID登录认证服务
      * @param authUserService    认证用户管理服务
      */
-    public AuthController(AppleSignInService appleSignInService, AuthUserService authUserService) {
-        this.appleSignInService = appleSignInService;
+    public AuthController(AuthUserService authUserService) {
         this.authUserService = authUserService;
     }
 
@@ -104,24 +90,36 @@ public class AuthController {
      * @throws ResponseStatusException 当注册失败时抛出相应的HTTP异常
      */
     @PostMapping("/register")
-    public ResponseEntity<String> register(@RequestBody AuthDTO.RegisterReq req) {
+    public ResponseEntity<AuthDTO.AuthResp> register(@RequestBody AuthDTO.RegisterReq req) {
         try {
-            // 验证输入参数
+            // 1. 验证输入参数
             if (req == null || req.username() == null || req.username().isBlank()) {
                 throw new IllegalArgumentException("用户名不能为空");
             }
             if (req.password() == null || req.password().length() < 6) {
                 throw new IllegalArgumentException("密码长度不能少于6位");
             }
+            if (req.email() == null || req.email().isBlank()) {
+                throw new IllegalArgumentException("邮箱不能为空");
+            }
+            // 可以添加更复杂的邮箱格式验证
 
-            // 调用注册服务
-            authUserService.register(req);
+            // 2. 调用注册服务，并获取认证响应
+            AuthDTO.AuthResp authResp = authUserService.register(req);
 
-            return ResponseEntity.ok("User registered successfully!");
+            // 3. 返回认证响应
+            return ResponseEntity.ok(authResp);
         } catch (IllegalArgumentException e) {
+            // 参数校验失败
+            logger.warn("用户注册参数无效: {}", e.getMessage());
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
+        } catch (IllegalStateException e) {
+            // 用户名或邮箱已存在等业务异常
+            logger.warn("用户注册业务失败: {}", e.getMessage());
+            throw new ResponseStatusException(HttpStatus.CONFLICT, e.getMessage());
         } catch (Exception e) {
-            logger.error("用户注册失败", e);
+            // 其他未知异常
+            logger.error("用户注册异常", e);
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "注册失败");
         }
     }
@@ -140,109 +138,34 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<AuthDTO.AuthResp> login(@RequestBody AuthDTO.LoginReq req) {
         try {
-            // 验证输入参数
+            // 1. 验证输入参数
             if (req == null || req.username() == null || req.username().isBlank()) {
-                throw new IllegalArgumentException("用户名不能为空");
+                throw new IllegalArgumentException("用户名或邮箱不能为空");
             }
             if (req.password() == null || req.password().isBlank()) {
                 throw new IllegalArgumentException("密码不能为空");
             }
 
-            // 调用登录服务
-            return ResponseEntity.ok(authUserService.login(req));
+            // 2. 调用登录服务，并获取认证响应
+            AuthDTO.AuthResp authResp = authUserService.login(req);
+
+            // 3. 返回认证响应
+            return ResponseEntity.ok(authResp);
         } catch (IllegalArgumentException e) {
+            // 参数校验失败
+            logger.warn("用户登录参数无效: {}", e.getMessage());
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
+        } catch (org.springframework.security.authentication.BadCredentialsException e) {
+            // 密码错误等认证失败异常
+            logger.warn("用户登录凭据无效: {}", e.getMessage());
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "用户名或密码错误");
         } catch (RuntimeException e) {
-            logger.error("用户登录失败", e);
+            // 其他运行时异常，例如用户不存在
+            logger.error("用户登录失败: {}", e.getMessage());
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "用户名或密码错误");
         } catch (Exception e) {
+            // 其他未知异常
             logger.error("登录异常", e);
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "服务器内部错误");
-        }
-    }
-
-    /**
-     * Apple ID登录认证端点
-     * <p>
-     * 该接口处理用户通过Apple ID登录的认证流程。Apple ID登录是应用的主要认证方式，
-     * 它利用Apple的身份验证系统来确保用户身份的真实性。
-     *
-     * <h3>认证流程：</h3>
-     * <ol>
-     *     <li>客户端收集用户的Apple ID认证信息</li>
-     *     <li>向服务器发送Apple ID令牌</li>
-     *     <li>服务器验证令牌的有效性和签名</li>
-     *     <li>解析用户信息（用户名、邮箱等）</li>
-     *     <li>创建或更新本地用户记录</li>
-     *     <li>生成系统访问令牌</li>
-     *     <li>返回用户信息和认证令牌</li>
-     * </ol>
-     *
-     * <h3>请求结构：</h3>
-     * <pre>
-     * POST /api/auth/apple
-     * Content-Type: application/json
-     *
-     * {
-     *     "idToken": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...", // Apple ID JWT令牌
-     *     "deviceId": "device-123456789",                     // 设备唯一标识符
-     *     "displayName": "张三"                               // 用户显示名称
-     * }
-     * </pre>
-     *
-     * <h3>响应结构：</h3>
-     * <pre>
-     * {
-     *     "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...", // 访问令牌
-     *     "expiresIn": 3600,                                       // 令牌过期时间（秒）
-     *     "user": {
-     *         "userId": 12345,
-     *         "appleSub": "com.apple.Account...@apple.com",
-     *         "email": "user@example.com",
-     *         "emailVerified": true,
-     *         "displayName": "张三",
-     *         "deviceId": "device-123456789"
-     *     }
-     * }
-     * </pre>
-     *
-     * <h3>安全要求：</h3>
-     * <ul>
-     *     <li>idToken必须有效且未过期</li>
-     *     <li>令牌必须由Apple的官方密钥验证</li>
-     *     <li>客户端必须使用HTTPS发送请求</li>
-     *     <li>设备ID应该与应用内获取的设备ID一致</li>
-     * </ul>
-     *
-     * <h3>错误处理：</h3>
-     * <ul>
-     *     <li>400 Bad Request - 令牌无效或参数缺失</li>
-     *     <li>401 Unauthorized - 令牌验证失败或已过期</li>
-     *     <li>500 Internal Server Error - 服务器内部错误</li>
-     * </ul>
-     *
-     * @param req Apple ID登录请求，包含：
-     *            - idToken: Apple提供的JWT认证令牌
-     *            - deviceId: 设备唯一标识符
-     *            - displayName: 用户显示名称（可选）
-     * @return ResponseEntity 包含认证成功后的用户信息和访问令牌
-     * @throws ResponseStatusException 当认证失败时抛出相应的HTTP状态异常
-     */
-    @PostMapping("/apple")
-    public ResponseEntity<AuthDTO.AuthResp> loginWithApple(@RequestBody AuthDTO.AppleLoginReq req) {
-        try {
-            // 调用Apple ID登录服务处理认证流程
-            return ResponseEntity.ok(appleSignInService.loginWithApple(req));
-        } catch (IllegalArgumentException e) {
-            // 参数错误：令牌格式无效或必需字段缺失
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
-        } catch (RuntimeException e) {
-            // 认证失败：令牌验证失败或其他认证相关错误
-            logger.error("Apple 登录失败", e);
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Apple 登录失败");
-        } catch (Exception e) {
-            // 其他异常
-            logger.error("Apple 登录异常", e);
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "服务器内部错误");
         }
     }

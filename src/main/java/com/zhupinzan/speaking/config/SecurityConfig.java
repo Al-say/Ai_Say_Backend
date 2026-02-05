@@ -1,13 +1,19 @@
 package com.zhupinzan.speaking.config;
 
 import com.zhupinzan.speaking.filter.JwtAuthenticationFilter;
+import com.zhupinzan.speaking.service.UserDetailsServiceImpl; // 导入自定义的 UserDetailsService
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.ProviderManager;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.password.PasswordEncoder; // 导入 PasswordEncoder
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
@@ -45,6 +51,8 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final UserDetailsServiceImpl userDetailsService; // 注入自定义的 UserDetailsService
+    private final PasswordEncoder passwordEncoder;     // 注入密码编码器
 
     /**
      * 配置安全过滤链
@@ -74,7 +82,7 @@ public class SecurityConfig {
             // 配置授权规则
             .authorizeHttpRequests(authz -> authz
                 // 公开访问的端点（不需要认证）
-                .requestMatchers("/api/auth/**").permitAll()  // 认证接口
+                .requestMatchers("/api/auth/**").permitAll()  // 认证接口 (包括注册和登录)
                 .requestMatchers("/api/home/daily").permitAll() // 每日挑战接口，允许匿名访问
                 .requestMatchers("/h2-console/**").permitAll()  // H2 控制台
                 .requestMatchers("/actuator/**").permitAll()  // 健康检查
@@ -83,10 +91,42 @@ public class SecurityConfig {
                 // 其他所有接口都需要认证
                 .anyRequest().authenticated()
             )
-
+            // 配置自定义的 AuthenticationProvider
+            .authenticationProvider(authenticationProvider())
             // 在 UsernamePasswordAuthenticationFilter 之前插入 JWT 过滤器
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
+    }
+
+    /**
+     * 配置 DaoAuthenticationProvider
+     * <p>
+     * 用于处理基于用户名和密码的认证。它使用 `UserDetailsService` 来获取用户详情，
+     * 并使用 `PasswordEncoder` 来验证密码。
+     * </p>
+     * @return 配置好的 DaoAuthenticationProvider
+     */
+    @Bean
+    public DaoAuthenticationProvider authenticationProvider() {
+        DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
+        authProvider.setUserDetailsService(userDetailsService);
+        authProvider.setPasswordEncoder(passwordEncoder);
+        return authProvider;
+    }
+
+    /**
+     * 配置 AuthenticationManager
+     * <p>
+     * AuthenticationManager 是 Spring Security 认证机制的核心接口，
+     * 用于处理认证请求。在这里我们通过 Configuration 的方式将其暴露为一个 Bean。
+     * </p>
+     * @param config AuthenticationConfiguration
+     * @return AuthenticationManager 实例
+     * @throws Exception
+     */
+    @Bean
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
+        return config.getAuthenticationManager();
     }
 }

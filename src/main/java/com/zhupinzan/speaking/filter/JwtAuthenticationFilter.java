@@ -11,7 +11,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -66,15 +65,14 @@ import java.util.Collections;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
-    private final UserDetailsService userDetailsService;
 
     /**
      * 核心过滤逻辑
      * <p>
      * <b>执行步骤：</b>
      * 1. 从 Authorization 头提取 Token
-     * 2. 验证 Token 并提取用户邮箱
-     * 3. 构造 Spring Security 的 Authentication 对象
+     * 2. 验证 Token 并提取用户邮箱 (作为主体)
+     * 3. 构造 Spring Security 的 Authentication 对象 (无需密码，因为是 Token 认证)
      * 4. 注入 SecurityContext，后续可通过 SecurityContextHolder 获取
      * 5. 继续执行过滤器链
      * </p>
@@ -95,7 +93,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         // 1. 从请求头中提取 Token
         String token = extractTokenFromRequest(request);
 
-        // 2. 如果 Token 不存在，直接放行（后续由 Spring Security 处理）
+        // 2. 如果 Token 不存在，直接放行（后续由 Spring Security 处理，例如匿名访问或未经认证）
         if (token == null) {
             log.debug("请求未携带 Token: {}", request.getRequestURI());
             filterChain.doFilter(request, response);
@@ -103,27 +101,27 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         try {
-            // 3. 验证 Token 并提取用户邮箱
+            // 3. 验证 Token 并提取用户邮箱 (作为 JWT 的主体)
             String email = jwtUtil.validateTokenAndGetEmail(token);
 
             // 4. 检查 SecurityContext 是否已有认证信息（避免重复认证）
+            // 并且确保从 JWT 中提取的 email 不为空
             if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
 
-                // 5. 从数据库加载用户详细信息
-                var userDetails = userDetailsService.loadUserByUsername(email);
-
-                // 6. 构造 Spring Security 的 Authentication 对象
+                // 5. 构造 Spring Security 的 Authentication 对象
+                // 对于 JWT 认证，credentials 可以是 null，因为 Token 本身已经代表了认证。
+                // 权限可以从 JWT claims 中提取，这里为了简化，设置为 Collections.emptyList()。
                 UsernamePasswordAuthenticationToken authentication =
                         new UsernamePasswordAuthenticationToken(
-                                userDetails,  // Principal: 完整的 UserDetails 对象
-                                null,   // Credentials：密码（已验证，不需要）
-                                userDetails.getAuthorities()  // Authorities：权限列表
+                                email,   // Principal: 用户的邮箱（作为 JWT 主体）
+                                null,    // Credentials：密码（已验证，不需要）
+                                Collections.emptyList()  // Authorities：权限列表（如果JWT中包含）
                         );
 
-                // 7. 设置请求详情（IP、Session ID 等）
+                // 6. 设置请求详情（IP、Session ID 等）
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 
-                // 8. 将认证信息注入 SecurityContext
+                // 7. 将认证信息注入 SecurityContext
                 SecurityContextHolder.getContext().setAuthentication(authentication);
 
                 log.debug("JWT 认证成功: email={}, uri={}", email, request.getRequestURI());
@@ -133,7 +131,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             // Token 无效或过期，清空 SecurityContext
             SecurityContextHolder.clearContext();
             log.warn("JWT 验证失败: uri={}, error={}", request.getRequestURI(), e.getMessage());
-            // 不抛出异常，继续执行过滤器链，让 Spring Security 处理（返回 401）
+            // 不抛出异常，继续执行过滤器链，让 Spring Security 处理（返回 401 Unauthorized）
         }
 
         // 8. 继续执行过滤器链
