@@ -4,6 +4,10 @@ import static com.zhupinzan.speaking.model.ErrorCode.*;
 import com.zhupinzan.speaking.model.ErrorCode;
 
 import java.time.OffsetDateTime;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.fasterxml.jackson.core.JsonProcessingException;
 
 /**
  * API 错误响应数据传输对象
@@ -557,6 +561,20 @@ public record ApiErrorResponse(
                 return true;
             default:
                 return false;
+        }
+    }
+
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper()
+            .registerModule(new JavaTimeModule())
+            .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+
+    public String toJsonString() {
+        try {
+            return OBJECT_MAPPER.writeValueAsString(this);
+        } catch (JsonProcessingException e) {
+            // In a real application, you might want to log this error more verbosely.
+            // For now, return a basic error JSON string.
+            return "{\"success\":false,\"code\":\"INTERNAL_ERROR\",\"message\":\"Error serializing error response\",\"requestId\":null,\"path\":\"/error\",\"timestamp\":\"" + OffsetDateTime.now().toString() + "\"}";
         }
     }
 }

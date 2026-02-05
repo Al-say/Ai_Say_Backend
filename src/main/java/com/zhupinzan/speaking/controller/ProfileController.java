@@ -2,6 +2,7 @@ package com.zhupinzan.speaking.controller;
 
 import com.zhupinzan.speaking.repository.UserProgressRepository;
 import com.zhupinzan.speaking.service.AuthUserService;
+import com.zhupinzan.speaking.service.LoginHistoryService;
 import com.zhupinzan.speaking.service.storage.LocalStorageService;
 import com.zhupinzan.speaking.util.CurrentUser;
 import com.zhupinzan.speaking.util.CurrentUserInfo;
@@ -82,6 +83,7 @@ public class ProfileController {
      */
     private final AuthUserService authUserService;
     private final LocalStorageService localStorageService;
+    private final LoginHistoryService loginHistoryService;
 
     /**
      * 构造函数（使用依赖注入）
@@ -92,10 +94,11 @@ public class ProfileController {
      * @param userProgressRepo  用户进度数据仓库
      * @param authUserService  认证用户服务
      */
-    public ProfileController(UserProgressRepository userProgressRepo, AuthUserService authUserService, LocalStorageService localStorageService) {
+    public ProfileController(UserProgressRepository userProgressRepo, AuthUserService authUserService, LocalStorageService localStorageService, LoginHistoryService loginHistoryService) {
         this.userProgressRepo = userProgressRepo;
         this.authUserService = authUserService;
         this.localStorageService = localStorageService;
+        this.loginHistoryService = loginHistoryService;
     }
 
     /**
@@ -293,6 +296,19 @@ public class ProfileController {
             p.getTotalAttempts(),
             p.getTotalDurationMs()
         ));
+    }
+
+    /**
+     * 获取登录历史
+     */
+    @GetMapping("/login-history")
+    public ResponseEntity<java.util.List<com.zhupinzan.speaking.repository.LoginHistoryRepository.LoginHistoryView>> loginHistory(
+            @CurrentUser CurrentUserInfo user,
+            @RequestParam(defaultValue = "50") int limit
+    ) {
+        var account = authUserService.requireAccount(user);
+        int safeLimit = Math.max(1, Math.min(limit, 200));
+        return ResponseEntity.ok(loginHistoryService.getHistory(account.getId(), safeLimit));
     }
 
     /**

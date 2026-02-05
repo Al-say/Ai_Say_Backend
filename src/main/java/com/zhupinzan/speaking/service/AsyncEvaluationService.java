@@ -8,9 +8,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
-import java.util.Map;
+import com.zhupinzan.speaking.model.entity.EvaluationTask;
+import com.zhupinzan.speaking.repository.EvaluationTaskRepository;
+import java.time.LocalDateTime;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -26,18 +27,15 @@ import java.util.concurrent.CompletableFuture;
  * <p>
  * <b>技术实现：</b><br>
  * • @Async：Spring 异步方法，自动在线程池中执行<br>
- * • ConcurrentHashMap：线程安全的任务状态存储<br>
  * • CompletableFuture：异步编程模型<br>
  * • UUID：全局唯一的任务标识符
  * <p>
  * <b>性能考虑：</b><br>
- * • 任务缓存：避免重复计算<br>
- * • 超时清理：定期清理过期任务<br>
+ * • 任务持久化：使用数据库存储任务状态，支持重启恢复<br>
  * • 并发控制：限制同时执行的任务数<br>
  * • 资源隔离：避免任务间相互影响
  * <p>
  * <b>注意事项：</b><br>
- * ⚠️ 生产环境需要使用 Redis 等外部存储替代内存 Map<br>
  * ⚠️ 需要配置合理的线程池大小<br>
  * ⚠️ 考虑任务持久化和恢复机制
  *
@@ -50,31 +48,7 @@ import java.util.concurrent.CompletableFuture;
 public class AsyncEvaluationService {
 
     private final DeepSeekEvalService deepSeekEvalService;
-
-    /**
-     * 任务状态存储
-     * <p>
-     * Key: TaskID (UUID)<br>
-     * Value: 任务响应对象（包含状态、进度、结果）
-     * <p>
-     * <b>生产环境建议：</b><br>
-     * • 使用 Redis 替代内存存储<br>
-     * • 设置合理的 TTL（如 1 小时）<br>
-     * • 支持分布式部署
-     * </p>
-     */
-    private final Map<String, AsyncEvaluationResponse> taskStore = new ConcurrentHashMap<>();
-
-    /**
-     * 🔐 任务所有者映射
-     * <p>
-     * Key: TaskID<br>
-     * Value: 用户身份（email/username）
-     * <p>
-     * 用于验证任务访问权限，确保用户只能访问自己的任务。
-     * </p>
-     */
-    private final Map<String, String> taskOwnerMap = new ConcurrentHashMap<>();
+    private final EvaluationTaskRepository evaluationTaskRepository;
 
     /**
      * 提交异步评估任务
@@ -100,18 +74,23 @@ public class AsyncEvaluationService {
         log.info("🔐 创建异步评估任务: taskId={}, owner={}, persona={}, scene={}", 
                  taskId, userIdentity, persona, scene);
 
-        // 2. 🔐 绑定任务与用户
-        taskOwnerMap.put(taskId, userIdentity);
+        // 2. 构建并保存任务实体
+        EvaluationTask evaluationTask = EvaluationTask.builder()
+                .id(taskId)
+                .userIdentity(userIdentity)
+                .persona(persona)
+                .scene(scene)
+                .transcript(transcript)
+                .status(AsyncEvaluationResponse.TaskStatus.PENDING)
+                .progress(0)
+                .build();
+        evaluationTaskRepository.save(evaluationTask);
 
-        // 3. 初始化任务状态
-        AsyncEvaluationResponse response = AsyncEvaluationResponse.pending(taskId);
-        taskStore.put(taskId, response);
-
-        // 4. 异步执行评估（不阻塞当前线程）
+        // 3. 异步执行评估（不阻塞当前线程）
         executeEvaluationAsync(taskId, persona, scene, transcript);
 
-        // 5. 立即返回任务信息
-        return response;
+        // 4. 立即返回任务信息
+        return AsyncEvaluationResponse.pending(taskId);
     }
 
     /**
@@ -171,23 +150,27 @@ public class AsyncEvaluationService {
      * @return 任务响应对象（包含状态和结果）
      */
     public AsyncEvaluationResponse getTaskStatus(String taskId, String userIdentity) {
-        // 🔐 验证任务所有权
-        String owner = taskOwnerMap.get(taskId);
-        if (owner == null) {
-            log.warn("任务不存在或已过期: taskId={}", taskId);
-            return AsyncEvaluationResponse.failed(taskId, "任务不存在或已过期");
-        }
-        if (!owner.equals(userIdentity)) {
-            log.warn("🚨 访问拒绝: taskId={}, owner={}, requestedBy={}", taskId, owner, userIdentity);
-            return AsyncEvaluationResponse.failed(taskId, "无权访问此任务");
-        }
-
-        AsyncEvaluationResponse response = taskStore.get(taskId);
-        if (response == null) {
-            log.warn("任务状态丢失: taskId={}", taskId);
-            return AsyncEvaluationResponse.failed(taskId, "任务状态异常");
-        }
-        return response;
+        return evaluationTaskRepository.findById(taskId)
+                .map(task -> {
+                    // 🔐 验证任务所有权
+                    if (!task.getUserIdentity().equals(userIdentity)) {
+                        log.warn("🚨 访问拒绝: taskId={}, owner={}, requestedBy={}", taskId, task.getUserIdentity(), userIdentity);
+                        return AsyncEvaluationResponse.failed(taskId, "无权访问此任务");
+                    }
+                    return AsyncEvaluationResponse.builder()
+                            .taskId(task.getId())
+                            .status(task.getStatus())
+                            .progress(task.getProgress())
+                            .result(task.getResult())
+                            .errorMessage(task.getErrorMessage())
+                            .createdAt(task.getCreatedAt() != null ? LocalDateTime.ofInstant(task.getCreatedAt(), java.time.ZoneOffset.UTC) : null) // Convert Instant to LocalDateTime
+                            .completedAt(task.getCompletedAt())
+                            .build();
+                })
+                .orElseGet(() -> {
+                    log.warn("任务不存在或已过期: taskId={}", taskId);
+                    return AsyncEvaluationResponse.failed(taskId, "任务不存在或已过期");
+                });
     }
 
     /**
@@ -202,38 +185,49 @@ public class AsyncEvaluationService {
      * @return true 如果删除成功，false 如果无权或任务不存在
      */
     public boolean deleteTask(String taskId, String userIdentity) {
-        // 🔐 验证任务所有权
-        String owner = taskOwnerMap.get(taskId);
-        if (owner == null || !owner.equals(userIdentity)) {
-            log.warn("🚨 删除拒绝: taskId={}, owner={}, requestedBy={}", taskId, owner, userIdentity);
-            return false;
-        }
-
-        taskStore.remove(taskId);
-        taskOwnerMap.remove(taskId);
-        log.info("任务已删除: taskId={}, owner={}", taskId, userIdentity);
-        return true;
+        return evaluationTaskRepository.findById(taskId)
+                .map(task -> {
+                    // 🔐 验证任务所有权
+                    if (!task.getUserIdentity().equals(userIdentity)) {
+                        log.warn("🚨 删除拒绝: taskId={}, owner={}, requestedBy={}", taskId, task.getUserIdentity(), userIdentity);
+                        return false;
+                    }
+                    evaluationTaskRepository.delete(task);
+                    log.info("任务已删除: taskId={}, owner={}", taskId, userIdentity);
+                    return true;
+                })
+                .orElseGet(() -> {
+                    log.warn("任务不存在或已过期: taskId={}", taskId);
+                    return false;
+                });
     }
 
     /**
-     * 更新任务状态（内部方法）
+     * 更新任务状态（内部方法），从数据库加载任务，更新字段并保存
      */
     private void updateTaskStatus(String taskId, AsyncEvaluationResponse response) {
-        taskStore.put(taskId, response);
+        evaluationTaskRepository.findById(taskId).ifPresent(task -> {
+            task.setStatus(response.getStatus());
+            task.setProgress(response.getProgress());
+            task.setErrorMessage(response.getErrorMessage());
+            task.setResult(response.getResult());
+            task.setCompletedAt(response.getCompletedAt()); // Set completedAt if available
+            evaluationTaskRepository.save(task);
+        });
     }
 
-    /**
-     * 清理过期任务（定时任务）
-     * <p>
-     * <b>建议配置：</b><br>
-     * • 每 10 分钟执行一次<br>
-     * • 清理 1 小时前创建的任务<br>
-     * • 记录清理日志
-     * </p>
-     */
+    // /**
+    //  * 清理过期任务（定时任务）
+    //  * <p>
+    //  * <b>建议配置：</b><br>
+    //  * • 每 10 分钟执行一次<br>
+    //  * • 清理 1 小时前创建的任务<br>
+    //  * • 记录清理日志
+    //  * </p>
+    //  */
     // @Scheduled(fixedRate = 600000) // 每 10 分钟
-    public void cleanupExpiredTasks() {
-        // TODO: 实现过期任务清理逻辑
-        log.info("执行过期任务清理");
-    }
+    // public void cleanupExpiredTasks() {
+    //     // TODO: 如果需要清理数据库中的过期任务，请实现数据库清理逻辑
+    //     log.info("执行过期任务清理 (目前未实现数据库清理)");
+    // }
 }

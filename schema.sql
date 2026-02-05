@@ -92,3 +92,24 @@ CREATE TABLE IF NOT EXISTS daily_topics (
     UNIQUE(for_date, persona)
 );
 CREATE INDEX IF NOT EXISTS idx_daily_topics_date_persona ON daily_topics(for_date, persona);
+
+-- 5. 异步评估任务表 (Asynchronous Evaluation Tasks)
+CREATE TABLE IF NOT EXISTS evaluation_tasks (
+    id VARCHAR(36) PRIMARY KEY,
+    user_identity VARCHAR(255) NOT NULL,
+    persona VARCHAR(32) NOT NULL,
+    scene VARCHAR(255) NOT NULL,
+    transcript TEXT NOT NULL,
+    status VARCHAR(32) NOT NULL,
+    progress INTEGER,
+    error_message TEXT,
+    result JSONB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    completed_at TIMESTAMP
+);
+
+-- 索引，用于快速查找某个用户的所有任务或某个任务的状态
+CREATE INDEX IF NOT EXISTS idx_evaluation_tasks_user_id ON evaluation_tasks(user_identity);
+CREATE INDEX IF NOT EXISTS idx_evaluation_tasks_status ON evaluation_tasks(status);
+CREATE INDEX IF NOT EXISTS idx_evaluation_tasks_created_at ON evaluation_tasks(created_at DESC);

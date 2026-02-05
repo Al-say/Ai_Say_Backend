@@ -5,6 +5,9 @@ target/
 .idea/
 *.iml
 
+# 本地Maven仓库
+.local-m2-repo/
+
 # 敏感配置文件和环境变量，防止API密钥泄漏
 src/main/resources/application.properties
 .env

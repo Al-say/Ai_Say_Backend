@@ -1,6 +1,7 @@
 package com.zhupinzan.speaking.service;
 
 import com.zhupinzan.speaking.config.AppleSignInConfig;
+import com.zhupinzan.speaking.model.LoginType;
 import com.zhupinzan.speaking.model.dto.AuthDTO;
 import com.zhupinzan.speaking.repository.UserAccountRepository;
 import com.zhupinzan.speaking.repository.DeviceRepository;
@@ -83,6 +84,7 @@ public class AuthUserService {
      * 用于生成和验证JWT令牌
      */
     private final JwtUtil jwtUtil;
+    private final LoginHistoryService loginHistoryService;
 
     /**
      * 构造函数注入 - 依赖注入模式
@@ -97,13 +99,15 @@ public class AuthUserService {
                           PasswordEncoder passwordEncoder,
                           AppleSignInConfig appleSignInConfig,
                           AppleSignInService appleSignInService,
-                          JwtUtil jwtUtil) {
+                          JwtUtil jwtUtil,
+                          LoginHistoryService loginHistoryService) {
         this.userAccountRepository = userAccountRepository;
         this.deviceRepository = deviceRepository;
         this.passwordEncoder = passwordEncoder;
         this.appleSignInConfig = appleSignInConfig;
         this.appleSignInService = appleSignInService;
         this.jwtUtil = jwtUtil;
+        this.loginHistoryService = loginHistoryService;
     }
 
   // ====== 核心认证方法 ======
@@ -351,6 +355,7 @@ public class AuthUserService {
         // 更新最后登录时间
         account.setLastLoginAt(java.time.OffsetDateTime.now());
         userAccountRepository.save(account);
+        loginHistoryService.recordLogin(account, LoginType.PASSWORD);
 
         // 生成JWT令牌
         String accessToken = generateAccessToken(account);

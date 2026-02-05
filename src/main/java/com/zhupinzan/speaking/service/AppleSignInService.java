@@ -9,6 +9,7 @@ import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import com.nimbusds.jwt.proc.DefaultJWTProcessor;
 import com.zhupinzan.speaking.config.AppleSignInConfig;
+import com.zhupinzan.speaking.model.LoginType;
 import com.zhupinzan.speaking.model.dto.AuthDTO;
 import com.zhupinzan.speaking.model.entity.UserAccount;
 import com.zhupinzan.speaking.repository.DeviceRepository;
@@ -36,11 +37,13 @@ public class AppleSignInService {
     private final AppleSignInConfig config; // 注入Apple登录相关的配置信息
     private final UserAccountRepository userAccountRepository; // 注入用户账户的数据仓库
     private final DeviceRepository deviceRepository;
+    private final LoginHistoryService loginHistoryService;
 
-    public AppleSignInService(AppleSignInConfig config, UserAccountRepository userAccountRepository, DeviceRepository deviceRepository) {
+    public AppleSignInService(AppleSignInConfig config, UserAccountRepository userAccountRepository, DeviceRepository deviceRepository, LoginHistoryService loginHistoryService) {
         this.config = config;
         this.userAccountRepository = userAccountRepository;
         this.deviceRepository = deviceRepository;
+        this.loginHistoryService = loginHistoryService;
     }
 
     /**
@@ -82,6 +85,7 @@ public class AppleSignInService {
         }
         account.setLastLoginAt(java.time.OffsetDateTime.now());
         account = userAccountRepository.save(account);
+        loginHistoryService.recordLogin(account, LoginType.APPLE);
 
         // 步骤 4: 为该用户生成一个本地的Access Token
         var accessToken = generateAccessToken(account);
