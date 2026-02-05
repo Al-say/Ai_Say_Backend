@@ -37,25 +37,30 @@ public class RateLimitingInterceptor implements HandlerInterceptor {
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
         String clientIp = getClientIp(request);
         Instant now = Instant.now();
+        log.info("RateLimitingInterceptor: Received request from IP: {}, Path: {}", clientIp, request.getRequestURI());
 
         // 获取或创建IP的请求计数器
         RequestInfo requestInfo = ipRequestCounts.computeIfAbsent(clientIp, k -> new RequestInfo(now, new AtomicInteger(0)));
+        log.debug("RateLimitingInterceptor: IP: {}, Current RequestInfo: startTime={}, counter={}", clientIp, requestInfo.getStartTime(), requestInfo.getCounter().get());
 
         // 检查是否在当前时间窗口内
         if (requestInfo.getStartTime().plusMillis(timeWindowMillis).isBefore(now)) {
             // 时间窗口已过期，重置计数器
             requestInfo.setStartTime(now);
             requestInfo.getCounter().set(0);
+            log.debug("RateLimitingInterceptor: IP: {}, Time window expired, reset counter to 0.", clientIp);
         }
 
         // 增加请求计数
         requestInfo.getCounter().incrementAndGet();
+        log.debug("RateLimitingInterceptor: IP: {}, Incremented counter to {}", clientIp, requestInfo.getCounter().get());
 
         if (requestInfo.getCounter().get() > maxRequests) {
             log.warn("Rate limit exceeded for IP: {}. {} requests in {} seconds.", clientIp, maxRequests, timeWindowMillis / 1000);
             sendTooManyRequestsError(response, request.getRequestURI());
             return false; // 阻止请求继续处理
         }
+        log.debug("RateLimitingInterceptor: IP: {}, Request allowed. Current count: {}", clientIp, requestInfo.getCounter().get());
 
         return true; // 允许请求继续处理
     }
