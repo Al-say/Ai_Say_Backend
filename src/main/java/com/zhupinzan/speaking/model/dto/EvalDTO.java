@@ -347,6 +347,54 @@ public class EvalDTO {
             }
             return null;
         }
+
+        public Double getFluency() {
+            return fluency;
+        }
+
+        public void setFluency(Double fluency) {
+            this.fluency = fluency;
+        }
+
+        public Double getCompleteness() {
+            return completeness;
+        }
+
+        public void setCompleteness(Double completeness) {
+            this.completeness = completeness;
+        }
+
+        public Double getRelevance() {
+            return relevance;
+        }
+
+        public void setRelevance(Double relevance) {
+            this.relevance = relevance;
+        }
+
+        public List<Issue> getIssues() {
+            return issues;
+        }
+
+        public void setIssues(List<Issue> issues) {
+            this.issues = issues;
+        }
+
+        public List<String> getSuggestions() {
+            return suggestions;
+        }
+
+        public void setSuggestions(List<String> suggestions) {
+            this.suggestions = suggestions;
+        }
+
+        public String getUserText() {
+            return userText;
+        }
+
+        public void setUserText(String userText) {
+            this.userText = userText;
+        }
     }
 
     /**
@@ -424,6 +472,14 @@ public class EvalDTO {
         private Integer length;
         private String message;
         private List<String> replacements;
+
+        public String getMessage() {
+            return message;
+        }
+
+        public void setMessage(String message) {
+            this.message = message;
+        }
     }
 
     /**

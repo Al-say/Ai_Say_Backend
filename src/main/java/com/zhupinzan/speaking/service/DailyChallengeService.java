@@ -18,74 +18,54 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * 每日挑战服务层 - 提供每日练习题目的核心业务逻辑
+ * 每日挑战服务层 - 提供每日练习题目的核心业务逻辑。
  *
  * <h3>服务定位与功能概述</h3>
  * <p>
- * DailyChallengeService 是整个应用的核心服务之一，负责为不同用户画像生成或获取每日练习题目。
- * 该服务采用"缓存优先，AI生成，兜底降级"的三层架构设计，确保在任何情况下都能为用户提供稳定的
- * 每日挑战体验。
+ * DailyChallengeService 是整个应用的核心服务之一，负责为不同用户画像（如备考党、职场人）动态生成或获取每日练习题目。
+ * 本服务旨在提供一个稳定、可靠且内容丰富的每日挑战功能，鼓励用户持续练习。
+ * </p>
+ * <p>
+ * 服务采用“缓存优先，AI生成，兜底降级”的三层架构设计，确保在任何情况下都能为用户提供高质量的
+ * 每日挑战体验。这种设计兼顾了性能、成本和用户体验。
  * </p>
  *
  * <h3>核心业务流程与算法逻辑</h3>
  * <p>
  * 主业务流程 {@link #getOrCreate(LocalDate, UserPersona)} 实现了以下关键逻辑：
  * <ol>
- *   <li><strong>缓存优先策略</strong>：首先查询数据库中的每日题目表，使用 (日期, 用户画像) 作为复合键，
- *       如果存在缓存记录，则直接返回，避免重复计算和AI调用。</li>
- *   <li><strong>AI动态生成</strong>：当缓存未命中时，调用 TopicGeneratorTask 使用大语言模型生成个性化题目。
- *       该过程根据日期、用户画像（考试准备/职场成长）和可能的用户偏好生成针对性练习内容。</li>
- *   <li><strong>降级兜底机制</strong>：当AI生成失败（API异常、超时或限流）时，系统自动切换到静态预设题目，
- *       保证基础功能的可用性。</li>
- *   <li><strong>数据持久化</strong>：使用 upsert 操作保存生成的题目，确保后续请求可以直接从数据库获取，
- *       实现了读写分离和数据一致性的平衡。</li>
+ *   <li><strong>缓存优先策略 (Cache-First)</strong>：
+ *       首先查询数据库中是否已存在当天的题目。使用 (日期, 用户画像) 作为复合键进行查找。
+ *       如果存在缓存记录，则直接返回，避免了不必要的计算和AI调用，提高了响应速度并降低了成本。
+ *   </li>
+ *   <li><strong>AI动态生成 (AI Generation)</strong>：
+ *       当缓存未命中时，表明当天的题目尚未生成。此时会调用 {@link TopicGeneratorTask} 服务，
+ *       利用大语言模型（如DeepSeek）根据日期和用户画像动态生成一个全新的、个性化的题目。
+ *   </li>
+ *   <li><strong>降级兜底机制 (Fallback)</strong>：
+ *       考虑到AI服务可能因网络问题、API限流或内部错误而失败，设计了可靠的降级机制。
+ *       当AI生成失败时，系统会自动切换到一个静态的、预设的“兜底”题目。这保证了即时在最坏情况下，
+ *       用户依然能获得一个可用的练习题目，保证了核心功能的可用性。
+ *   </li>
+ *   <li><strong>数据持久化 (Persistence)</strong>：
+ *       无论是AI生成的题目还是兜底题目，一旦创建，都会通过“UPSERT”（更新或插入）操作保存到数据库中。
+ *       这样，后续对同一天同一画像的请求就可以直接从缓存中获取，实现了“一次计算，多次使用”的模式。
+ *   </li>
  * </ol>
  * </p>
  *
  * <h3>与其他服务的协作关系</h3>
- * <p>
- * - {@link DailyTopicRepository}：数据持久化层，提供数据库操作接口
- * - {@link TopicGeneratorTask}：AI服务层，负责题目内容的智能生成
- * - 使用 Lombok SLF4J 进行日志记录，便于问题排查和性能监控
- * </p>
- *
- * <h3>数据处理与转换逻辑</h3>
- * <p>
- * - 使用 Jackson ObjectMapper 处理 JSON 序列化，将题目内容以结构化形式存储
- * - 题目包含标题、提示词、图片URL和扩展payload等多维度信息
- * - 支持多种用户画像的差异化题目生成（EXAM_PREP vs CAREER_GROWTH）
- * </p>
- *
- * <h3>缓存策略和性能优化</h3>
- * <p>
- * - 采用数据库作为缓存层，通过复合索引优化查询性能
- * - 实现幂等性设计，避免重复生成相同题目的资源浪费
- * - 使用 @Transactional 保证数据操作的原子性
- * - 日志记录命中情况，便于监控缓存效率
- * </p>
+ * <ul>
+ *   <li><b>{@link DailyTopicRepository}</b>：数据持久化层。本服务通过该接口与数据库交互，进行题目的读写操作。</li>
+ *   <li><b>{@link TopicGeneratorTask}</b>：AI服务层。本服务委托该任务进行AI题目的智能生成。</li>
+ *   <li><b>Lombok SLF4J</b>：用于日志记录，方便追踪程序执行流程、排查问题和进行性能监控。</li>
+ * </ul>
  *
  * <h3>错误处理和降级机制</h3>
- * <p>
- * - AI生成失败时自动降级到预设题目，保证服务可用性
- * - 持久化失败时返回临时对象，避免影响前端用户体验
- * - 异常处理采用防御性编程，确保主流程不会因单个组件故障而中断
- * - 详细的日志记录用于事后分析和问题定位
- * </p>
- *
- * <h3>配置参数和使用场景</h3>
- * <p>
- * - 无需额外配置参数，使用 Spring 依赖注入管理
- * - 适用于每日晨练、定期测评等需要定期更新内容的场景
- * - 通过日期维度实现题目的时间轮转，避免内容重复
- * </p>
- *
- * <h3>扩展性和维护性考虑</h3>
- * <p>
- * - 采用接口化设计，便于替换不同的题目生成策略
- * - 单一职责原则，只负责题目获取和生成逻辑
- * - 清晰的代码注释和流程说明，便于后续维护
- * - 事务边界明确，避免长事务和性能问题
- * </p>
+ * <ul>
+ *   <li><b>AI生成失败</b>：通过 try-catch 块捕获所有来自 {@code TopicGeneratorTask} 的异常，记录错误日志，并触发 {@code createFallback} 逻辑，无缝切换到兜底题目。</li>
+ *   <li><b>持久化失败</b>：同样通过 try-catch 块捕获数据库操作异常。为了最大限度保证用户体验，即使持久化失败，也会将生成的临时题目对象返回给前端，同时抛出 {@link DailyTopicPersistenceException} 以便上层统一处理和监控。这种策略保证了前端在数据库短暂故障时仍能工作。</li>
+ * </ul>
  */
 @Service
 @Slf4j
@@ -103,21 +83,46 @@ public class DailyChallengeService {
     /**
      * 获取或创建指定日期和用户画像的每日挑战题目。
      * <p>
-     * 这是该服务的核心方法，其执行逻辑如下：
-     * 1.  **缓存优先**: 首先尝试从数据库中查找是否已存在当天的题目。如果存在，则直接返回。
-     * 2.  **AI生成**: 如果缓存中不存在，则调用 {@link TopicGeneratorTask} 尝试使用AI生成一个新的题目。
-     * 3.  **降级处理**: 如果AI生成失败（例如，由于API错误或超时），则会创建一个静态的、预设的“兜底”题目。
-     * 4.  **持久化**: 将新生成或降级创建的题目通过 upsert (更新或插入) 操作保存到数据库中，以供后续请求使用。
+     * 这是该服务的核心方法，它 orchestrates 了整个题目的获取、生成和持久化流程。
+     * 其执行逻辑严格遵循“缓存优先、AI生成、兜底降级、最终持久化”的策略。
+     * <p>
+     * <b>详细执行步骤:</b>
+     * <ol>
+     *   <li>
+     *     <b>步骤 1: 缓存优先 (Cache-First)</b><br>
+     *     首先，使用日期和用户画像作为联合键，尝试从数据库 ({@code DailyTopicRepository}) 中查找是否已存在当天的题目。
+     *     如果找到，记录一条缓存命中的日志，并立即返回该题目，终止后续流程。
+     *   </li>
+     *   <li>
+     *     <b>步骤 2: AI生成 (AI Generation)</b><br>
+     *     如果缓存中不存在，记录缓存未命中的日志，并调用 {@link TopicGeneratorTask#generateFor(LocalDate, UserPersona)} 尝试使用AI生成一个新的题目。
+     *     此过程被一个 try-catch 块包裹，以处理任何可能的AI服务异常。
+     *   </li>
+     *   <li>
+     *     <b>步骤 3: 降级处理 (Fallback)</b><br>
+     *     如果AI生成失败（即 {@code generator.generateFor} 抛出异常），catch块会记录错误日志，并将生成的题目变量设为 {@code null}。
+     *     后续的 {@code if (generated == null)} 判断会捕捉到这个情况，并调用 {@link #createFallback(LocalDate, UserPersona)} 方法创建一个静态的、预设的“兜底”题目。
+     *     这确保了即使AI服务完全不可用，用户也能得到一个有效的题目。
+     *   </li>
+     *   <li>
+     *     <b>步骤 4: 持久化 (Persistence)</b><br>
+     *     无论是AI生成的题目还是兜底题目，都会被传递到此步骤进行持久化。
+     *     使用 {@link DailyTopicRepository#upsertDailyTopic} 方法将题目数据“更新或插入”(UPSERT) 到数据库中。
+     *     这个操作也被 try-catch 块保护。如果持久化失败，会记录警告日志并抛出 {@link DailyTopicPersistenceException}，
+     *     以通知上层调用者持久化环节出现问题，便于监控和报警。
+     *   </li>
+     * </ol>
      *
-     * @param date    题目的日期。
-     * @param persona 用户的画像。
-     * @return 一个 {@link DailyTopic} 实体，保证永不为null。
+     * @param date    题目的日期，通常是当天的UTC日期。
+     * @param persona 用户的画像 (e.g., EXAM_PREP, CAREER_GROWTH)。
+     * @return 一个 {@link DailyTopic} 实体。在绝大多数情况下，这是一个已持久化的实体。如果持久化失败，会返回一个临时的（未持久化的）实体。
+     * @throws DailyTopicPersistenceException 如果将生成的题目持久化到数据库失败。
      */
     @Transactional
     public DailyTopic getOrCreate(LocalDate date, UserPersona persona) {
         String personaKey = persona.name();
 
-        // 步骤 1: 优先从数据库缓存中获取
+        // 步骤 1: 优先从数据库缓存中获取。这是核心的性能优化点。
         var existing = repo.findByTopicDateAndPersona(date, personaKey);
         if (existing.isPresent()) {
             log.info("每日挑战缓存命中: date={}, persona={}", date, personaKey);
@@ -125,39 +130,45 @@ public class DailyChallengeService {
         }
         log.info("每日挑战缓存未命中，尝试生成新题目: date={}, persona={}", date, personaKey);
 
-        // 步骤 2: 尝试使用AI生成
+        // 步骤 2: 缓存未命中，尝试调用AI服务生成新题目。
         DailyTopic generated;
         try {
             generated = generator.generateFor(date, persona);
         } catch (Exception e) {
+            // 如果AI生成失败，记录错误并准备使用兜底方案。
             log.error("AI题目生成失败，将使用兜底题目: persona={}, error={}", personaKey, e.getMessage());
             generated = null;
         }
 
-        // 步骤 3: 如果AI生成失败，创建静态的兜底题目
+        // 步骤 3: 检查AI生成是否成功。如果不成功 (generated为null)，则创建静态的兜底题目。
         if (generated == null) {
+            log.info("AI生成失败或返回null，正在创建兜底题目: persona={}", personaKey);
             generated = createFallback(date, persona);
         }
 
-        // 步骤 4: 将新题目持久化到数据库
+        // 步骤 4: 将新生成（或兜底）的题目持久化到数据库，以供后续请求使用。
         try {
-            // 使用仓库中的自定义upsert方法来插入或更新记录
+            // 使用仓库中的自定义upsert方法来插入或更新记录。
             repo.upsertDailyTopic(
                 date, personaKey, generated.getTitle(),
                 generated.getPrompt(), generated.getImageUrl(),
                 om.writeValueAsString(generated.getPayload())
             );
-            // 再次查询以获取持久化后的完整实体
+            // 再次查询以获取持久化后的完整实体，确保返回的是带有ID和其他数据库生成字段的最新状态。
             return repo.findByTopicDateAndPersona(date, personaKey).orElse(generated);
         } catch (Exception e) {
+            // 如果持久化失败，记录警告并抛出自定义异常，以便进行监控。
             log.warn("每日挑战题目持久化失败，将返回一个临时的（未持久化的）题目对象。Error: {}", e.getMessage());
-            // 即使持久化失败，也返回生成的题目对象，以保证前端功能的可用性。
+            // 抛出异常，让全局异常处理器或调用方知道持久化失败了。
             throw new DailyTopicPersistenceException("Failed to persist daily topic for date: " + date + ", persona: " + personaKey, e);
         }
     }
 
     /**
      * 创建一个静态的、用于降级的兜底题目。
+     * <p>
+     * 当AI服务不可用或生成失败时，此方法提供一个预设的、通用的题目，
+     * 以保证每日挑战功能的基本可用性。
      *
      * @param date    题目日期。
      * @param persona 用户画像。

@@ -31,35 +31,34 @@ mvn spring-boot:run
 curl -X POST http://localhost:2580/api/auth/register \
   -H "Content-Type: application/json" \
   -d '{
-    "email": "test@example.com",
+    "username": "testuser",
     "password": "Test123456",
-    "nickname": "测试用户"
+    "email": "test@example.com",
+    "displayName": "测试用户"
   }' | jq
 ```
 
-**预期响应** (HTTP 201):
+**预期响应** (HTTP 200):
 ```json
-{
-  "message": "注册成功，请登录"
-}
+User registered successfully!
 ```
 
 **测试重复注册** (应该失败):
 ```bash
-# 再次使用相同邮箱注册
+# 再次使用相同用户名注册
 curl -X POST http://localhost:2580/api/auth/register \
   -H "Content-Type: application/json" \
   -d '{
-    "email": "test@example.com",
+    "username": "testuser",
     "password": "AnotherPass",
-    "nickname": "另一个用户"
+    "displayName": "另一个用户"
   }' | jq
 ```
 
 **预期响应** (HTTP 400):
 ```json
 {
-  "error": "该邮箱已被注册"
+  "error": "用户名已存在"
 }
 ```
 
@@ -71,7 +70,7 @@ curl -X POST http://localhost:2580/api/auth/register \
 curl -X POST http://localhost:2580/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{
-    "email": "test@example.com",
+    "username": "testuser",
     "password": "Test123456"
   }' | jq
 ```
@@ -79,22 +78,27 @@ curl -X POST http://localhost:2580/api/auth/login \
 **预期响应** (HTTP 200):
 ```json
 {
-  "token": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0QGV4YW1wbGUuY29tIiwiaWF0IjoxNzA0NDQxNjAwLCJleHAiOjE3MDQ1MjgwMDB9.xyz...",
-  "tokenType": "Bearer",
-  "expiresIn": 86400,
-  "email": "test@example.com",
-  "nickname": "测试用户"
+  "accessToken": "eyJhbGciOiJIUzI1NiJ9...",
+  "expiresIn": 3600,
+  "user": {
+    "userId": 1,
+    "appleSub": null,
+    "email": "test@example.com",
+    "emailVerified": null,
+    "displayName": "测试用户",
+    "deviceId": null
+  }
 }
 ```
 
-**📝 记下返回的 `token`，用于后续测试！**
+**📝 记下返回的 `accessToken`，用于后续测试！**
 
 **测试错误密码**:
 ```bash
 curl -X POST http://localhost:2580/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{
-    "email": "test@example.com",
+    "username": "testuser",
     "password": "WrongPassword"
   }' | jq
 ```
@@ -110,18 +114,18 @@ curl -X POST http://localhost:2580/api/auth/login \
 
 ### Step 3: 验证 Token（获取当前用户信息）
 
-将 `{token}` 替换为实际的 Token：
+将 `{accessToken}` 替换为实际的 Token：
 
 ```bash
 curl -X GET http://localhost:2580/api/auth/me \
-  -H "Authorization: Bearer {token}" | jq
+  -H "Authorization: Bearer {accessToken}" | jq
 ```
 
 **预期响应** (HTTP 200):
 ```json
 {
-  "email": "test@example.com",
-  "authenticated": true
+  "userId": "1",
+  "appleSub": null
 }
 ```
 
@@ -140,43 +144,13 @@ curl -X GET http://localhost:2580/api/auth/me \
 
 ---
 
-### Step 4: 检查邮箱可用性
-
-```bash
-# 检查已注册的邮箱
-curl "http://localhost:2580/api/auth/check-email?email=test@example.com" | jq
-```
-
-**预期响应**:
-```json
-{
-  "available": false,
-  "message": "该邮箱已被注册"
-}
-```
-
-```bash
-# 检查未注册的邮箱
-curl "http://localhost:2580/api/auth/check-email?email=newuser@example.com" | jq
-```
-
-**预期响应**:
-```json
-{
-  "available": true,
-  "message": "邮箱可用"
-}
-```
-
----
-
 ### Step 5: 使用 Token 访问受保护接口
 
 测试异步评估接口（需要认证）：
 
 ```bash
 curl -X POST http://localhost:2580/api/v1/evaluate \
-  -H "Authorization: Bearer {token}" \
+  -H "Authorization: Bearer {accessToken}" \
   -H "Content-Type: application/json" \
   -d '{
     "persona": "EXAM_PREP",
@@ -209,6 +183,27 @@ curl -X POST http://localhost:2580/api/v1/evaluate \
 ```
 
 **预期响应** (HTTP 401 或 403): 拒绝访问
+
+---
+
+### Step 6: 查询登录历史（可选）
+
+```bash
+curl -X GET http://localhost:2580/api/profile/login-history?limit=50 \
+  -H "Authorization: Bearer {accessToken}" | jq
+```
+
+**预期响应** (HTTP 200):
+```json
+[
+  {
+    "id": 101,
+    "loginAt": "2026-02-05T12:34:56Z",
+    "loginType": "PASSWORD",
+    "deviceId": "device-uuid"
+  }
+]
+```
 
 ---
 
@@ -245,7 +240,8 @@ SELECT email, password_hash FROM user_account;
 #!/bin/bash
 
 BASE_URL="http://localhost:2580/api/auth"
-EMAIL="test-$(date +%s)@example.com"  # 使用时间戳生成唯一邮箱
+USERNAME="testuser_$(date +%s)"  # 使用时间戳生成唯一用户名
+EMAIL="test-$(date +%s)@example.com"
 
 echo "🧪 JWT 认证系统测试"
 echo "===================="
@@ -255,9 +251,10 @@ echo "\n1️⃣ 测试注册..."
 REGISTER_RESPONSE=$(curl -s -X POST $BASE_URL/register \
   -H "Content-Type: application/json" \
   -d "{
-    \"email\": \"$EMAIL\",
+    \"username\": \"$USERNAME\",
     \"password\": \"Test123456\",
-    \"nickname\": \"自动化测试用户\"
+    \"email\": \"$EMAIL\",
+    \"displayName\": \"自动化测试用户\"
   }")
 
 echo "注册响应: $REGISTER_RESPONSE"
@@ -267,14 +264,14 @@ echo "\n2️⃣ 测试登录..."
 LOGIN_RESPONSE=$(curl -s -X POST $BASE_URL/login \
   -H "Content-Type: application/json" \
   -d "{
-    \"email\": \"$EMAIL\",
+    \"username\": \"$USERNAME\",
     \"password\": \"Test123456\"
   }")
 
 echo "登录响应: $LOGIN_RESPONSE"
 
 # 提取 Token
-TOKEN=$(echo $LOGIN_RESPONSE | jq -r '.token')
+TOKEN=$(echo $LOGIN_RESPONSE | jq -r '.accessToken')
 echo "Token: ${TOKEN:0:20}..."
 
 # 3. 验证 Token
@@ -317,7 +314,7 @@ chmod +x test-jwt-auth.sh
 # 创建登录请求文件
 cat > login.json <<EOF
 {
-  "email": "test@example.com",
+  "username": "testuser",
   "password": "Test123456"
 }
 EOF

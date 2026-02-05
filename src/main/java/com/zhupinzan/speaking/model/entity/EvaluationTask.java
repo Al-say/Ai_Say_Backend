@@ -4,17 +4,23 @@ import com.vladmihalcea.hibernate.type.json.JsonBinaryType;
 import com.zhupinzan.speaking.model.UserPersona;
 import com.zhupinzan.speaking.model.dto.AsyncEvaluationResponse;
 import com.zhupinzan.speaking.model.dto.DeepSeekEvalResult;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import java.time.Instant;
+import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.Type;
 import org.hibernate.annotations.UpdateTimestamp;
-
-import jakarta.persistence.*;
-import java.time.Instant;
-import java.time.LocalDateTime;
+import org.hibernate.type.SqlTypes;
 
 /**
  * 异步评估任务实体
@@ -56,6 +62,7 @@ public class EvaluationTask {
     private String errorMessage;
 
     @Type(JsonBinaryType.class)
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "result", columnDefinition = "jsonb")
     private DeepSeekEvalResult result;
 
@@ -69,7 +76,4 @@ public class EvaluationTask {
 
     @Column(name = "completed_at")
     private LocalDateTime completedAt;
-
-    // Optional: Add other fields from AsyncEvaluationResponse if needed,
-    // e.g., estimatedSecondsRemaining, but for persistence, the core fields are sufficient.
 }

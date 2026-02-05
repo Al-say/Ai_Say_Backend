@@ -97,7 +97,14 @@ public class DeepSeekEvalService {
      */
     @Retry(name = "deepseek")
     @CircuitBreaker(name = "deepseek", fallbackMethod = "fallbackEval")
-    public DeepSeekEvalResult evaluate(UserPersona persona, String scene, String transcript) {
+    public DeepSeekEvalResult evaluate(String transcript) {
+        // Use default persona and scene for simplified evaluation
+        return evaluate(UserPersona.CAREER_GROWTH, "General", transcript);
+    }
+
+    /**
+     * AI智能评分核心方法 - 实现口语评估的主入口
+     * <p>
         // ====== AI评分核心执行流程 ======
 
         // 【前置信息记录】

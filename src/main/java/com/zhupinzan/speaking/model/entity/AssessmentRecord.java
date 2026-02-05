@@ -124,6 +124,38 @@ public class AssessmentRecord {
      */
     private String prompt;
 
+    public void setDeviceId(String deviceId) {
+        this.deviceId = deviceId;
+    }
+
+    public void setPersona(UserPersona persona) {
+        this.persona = persona;
+    }
+
+    public void setPrompt(String prompt) {
+        this.prompt = prompt;
+    }
+
+    public void setTranscript(String transcript) {
+        this.transcript = transcript;
+    }
+
+    public void setAudioUrl(String audioUrl) {
+        this.audioUrl = audioUrl;
+    }
+
+    public void setMode(AssessmentMode mode) {
+        this.mode = mode;
+    }
+
+    public void setScene(String scene) {
+        this.scene = scene;
+    }
+
+    public void setOverallScore(Double overallScore) {
+        this.overallScore = overallScore;
+    }
+
     @Column(name = "overall_score")
     /**
      * 总体评分

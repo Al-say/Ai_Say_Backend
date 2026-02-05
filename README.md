@@ -47,6 +47,7 @@
 - **成长模块** (`/api/growth`): 学习进度追踪、雷达图分析、历史记录
 - **探索模块** (`/api/explore`): 新功能发现
 - **个人中心** (`/api/profile`): 用户信息管理、打卡统计
+- **登录历史** (`/api/profile/login-history`): 登录历史查询
 - **音频模块** (`/api/audio`): 音频上传与转码
 
 ### 🔧 技术栈
@@ -279,6 +280,26 @@ Authorization: Bearer <token>
 }
 ```
 
+### 获取登录历史
+
+```
+GET /api/profile/login-history?limit=50
+Authorization: Bearer <token>
+```
+
+**响应示例:**
+
+```json
+[
+  {
+    "id": 101,
+    "loginAt": "2026-02-05T12:34:56Z",
+    "loginType": "APPLE",
+    "deviceId": "device-uuid"
+  }
+]
+```
+
 ### 音频上传
 
 ```
@@ -299,6 +320,8 @@ Content-Type: multipart/form-data
 | `assessment_record` | 评估记录流水表 (含JSONB扩展字段) |
 | `daily_topics`      | 每日挑战题目缓存                 |
 | `user_progress`     | 用户打卡进度统计                 |
+| `user_account`      | 用户账户                         |
+| `login_history`     | 登录历史记录                     |
 
 ### 表字段详情
 
@@ -348,6 +371,18 @@ CREATE TABLE user_progress (
     last_active_date DATE,
     streak_days INTEGER NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE
+);
+```
+
+#### login_history (登录历史表)
+
+```sql
+CREATE TABLE login_history (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    login_type VARCHAR(16) NOT NULL, -- PASSWORD/APPLE
+    device_id VARCHAR(64),
+    login_at TIMESTAMP WITH TIME ZONE
 );
 ```
 

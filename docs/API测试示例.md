@@ -152,6 +152,29 @@ curl -X DELETE http://localhost:2580/api/v1/evaluate/{taskId}
 
 ---
 
+## 🔐 可选：登录历史查询
+
+前提：先通过 `/api/auth/login` 或 `/api/auth/apple` 获取 `accessToken`。
+
+```bash
+curl -X GET http://localhost:2580/api/profile/login-history?limit=50 \
+  -H "Authorization: Bearer {accessToken}" | jq
+```
+
+**预期响应** (HTTP 200):
+```json
+[
+  {
+    "id": 101,
+    "loginAt": "2026-02-05T12:34:56Z",
+    "loginType": "PASSWORD",
+    "deviceId": "device-uuid"
+  }
+]
+```
+
+---
+
 ## 🔬 测试不同场景
 
 ### 场景 1: CAREER_GROWTH 画像

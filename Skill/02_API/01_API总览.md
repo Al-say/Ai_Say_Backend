@@ -13,7 +13,7 @@
 - 错误码：见ErrorCode枚举
 
 ## 关键流程
-所有API都需要Bearer token认证。
+除 `/api/auth/**` 外，其它API都需要Bearer token认证。
 
 ## 关键接口或关键文件位置
 - 控制器：controller/ 目录
@@ -26,6 +26,8 @@
 ## API端点列表
 
 ### 认证模块 (/api/auth)
+- POST /api/auth/register - 用户注册
+- POST /api/auth/login - 用户名密码登录
 - POST /api/auth/apple - Apple ID登录
 - GET /api/auth/me - 获取当前用户信息
 - POST /api/auth/bind-device - 绑定设备ID
@@ -50,6 +52,7 @@
 - GET /api/profile - 个人主页
 - GET /api/profile/stats - 统计数据
 - POST /api/profile/device - 设备绑定
+- GET /api/profile/login-history - 登录历史
 
 ### 音频模块 (/api/audio)
 - POST /api/audio/upload - 音频上传
