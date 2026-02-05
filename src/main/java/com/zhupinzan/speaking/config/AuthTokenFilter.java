@@ -145,6 +145,10 @@ public class AuthTokenFilter extends OncePerRequestFilter {
             filterChain.doFilter(request, response);
             return;
         }
+        if (isPublic(request)) {
+            filterChain.doFilter(request, response);
+            return;
+        }
 
         // 步骤 2: 从请求头中提取Bearer Token
         // 标准的JWT认证格式为：Authorization: Bearer <token>

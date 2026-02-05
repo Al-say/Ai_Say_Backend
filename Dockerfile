@@ -1,5 +1,5 @@
 # 1. 基础镜像
-FROM eclipse-temurin:21-jre
+FROM eclipse-temurin:21-jdk
 
 # 2. 设定时区
 ENV TZ=Asia/Shanghai

@@ -1,14 +1,14 @@
 package com.zhupinzan.speaking.model.dto;
 
+import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
-import lombok.NoArgsConstructor;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
 
 @Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
 public class EvaluationRequest {
-    private String text;
+
+    @NotBlank(message = "Transcript cannot be empty")
+    private String transcript;
+
+    private String persona;
+    private String scene;
 }

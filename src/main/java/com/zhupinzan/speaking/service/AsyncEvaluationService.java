@@ -1,9 +1,11 @@
 package com.zhupinzan.speaking.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.zhupinzan.speaking.model.dto.AsyncEvaluationResponse;
 import com.zhupinzan.speaking.model.dto.EvaluationRequest;
+import com.zhupinzan.speaking.model.dto.AsyncEvaluationResponse;
+import com.zhupinzan.speaking.model.dto.DeepSeekEvalResult;
 import com.zhupinzan.speaking.model.entity.EvaluationTask;
+import com.zhupinzan.speaking.model.TaskStatus;
 import com.zhupinzan.speaking.repository.EvaluationTaskRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -34,16 +36,27 @@ public class AsyncEvaluationService {
 
         try {
             // 2. 调用 AI
-            // 假设 deepSeekService.evaluate 返回的是一个对象，我们转成 JSON 存起来
-            Object assessmentResult = deepSeekService.evaluate(request.getTranscript());
-
+            var persona = request.getPersona();
+            var scene = request.getScene();
+            var transcript = request.getTranscript();
+            DeepSeekEvalResult assessmentResult;
+            if (persona == null || persona.isBlank() || scene == null || scene.isBlank()) {
+                assessmentResult = deepSeekService.evaluate(transcript);
+            } else {
+                assessmentResult = deepSeekService.evaluate(
+                        com.zhupinzan.speaking.model.UserPersona.valueOf(persona.toUpperCase()),
+                        scene,
+                        transcript
+                );
+            }
+            
             task.setResultJson(objectMapper.writeValueAsString(assessmentResult));
-            task.setStatus(AsyncEvaluationResponse.TaskStatus.COMPLETED);
+            task.setStatus(TaskStatus.COMPLETED);
             task.setCompletedAt(LocalDateTime.now());
-
+            
         } catch (Exception e) {
             log.error("Task failed: {}", taskId, e);
-            task.setStatus(AsyncEvaluationResponse.TaskStatus.FAILED);
+            task.setStatus(TaskStatus.FAILED);
             task.setErrorMessage(e.getMessage());
         } finally {
             // 3. 💾 最终状态落库
@@ -52,21 +65,25 @@ public class AsyncEvaluationService {
     }
 
     // 提交任务
-    public String submitTask(EvaluationRequest request, String userIdentity) {
+    public AsyncEvaluationResponse submitEvaluation(com.zhupinzan.speaking.model.UserPersona persona, String scene, String transcript, String userEmail) {
         String taskId = UUID.randomUUID().toString();
 
         // 1. 先在数据库占个位
         EvaluationTask task = new EvaluationTask();
         task.setId(taskId);
-        task.setUserIdentity(userIdentity);
-        task.setTranscript(request.getTranscript());
-        task.setStatus(AsyncEvaluationResponse.TaskStatus.PENDING);
+        task.setUserEmail(userEmail);
+        task.setOriginalText(transcript);
+        task.setStatus(TaskStatus.PENDING);
         taskRepository.save(task);
 
         // 2. 触发异步处理
-        processEvaluation(taskId, request);
+        EvaluationRequest req = new EvaluationRequest();
+        req.setTranscript(transcript);
+        req.setPersona(persona == null ? null : persona.name());
+        req.setScene(scene);
+        processEvaluation(taskId, req);
 
-        return taskId;
+        return AsyncEvaluationResponse.pending(taskId);
     }
 
     // 获取单个任务详情
@@ -74,8 +91,53 @@ public class AsyncEvaluationService {
         return taskRepository.findById(taskId).orElse(null);
     }
 
+    /**
+     * 获取任务状态并进行权限校验
+     */
+    public AsyncEvaluationResponse getTaskStatus(String taskId, String userEmail) {
+        EvaluationTask task = taskRepository.findById(taskId).orElse(null);
+        if (task == null) {
+            return null;
+        }
+        if (task.getUserEmail() != null && userEmail != null && !task.getUserEmail().equals(userEmail)) {
+            throw new SecurityException("Access denied: You are not the owner of this task");
+        }
+        return mapToResponse(task);
+    }
+
     // 获取用户历史
-    public List<EvaluationTask> getUserHistory(String userIdentity) {
-        return taskRepository.findByUserIdentityOrderByCreatedAtDesc(userIdentity);
+    public List<EvaluationTask> getUserHistory(String userEmail) {
+        return taskRepository.findByUserEmailOrderByCreatedAtDesc(userEmail);
+    }
+
+    private AsyncEvaluationResponse mapToResponse(EvaluationTask task) {
+        if (task == null) {
+            return null;
+        }
+        AsyncEvaluationResponse.TaskStatus status = switch (task.getStatus()) {
+            case PENDING -> AsyncEvaluationResponse.TaskStatus.PENDING;
+            case COMPLETED -> AsyncEvaluationResponse.TaskStatus.COMPLETED;
+            case FAILED -> AsyncEvaluationResponse.TaskStatus.FAILED;
+        };
+
+        DeepSeekEvalResult result = null;
+        if (status == AsyncEvaluationResponse.TaskStatus.COMPLETED && task.getResultJson() != null) {
+            try {
+                result = objectMapper.readValue(task.getResultJson(), DeepSeekEvalResult.class);
+            } catch (Exception e) {
+                log.warn("Failed to parse resultJson for task {}", task.getId());
+            }
+        }
+
+        return AsyncEvaluationResponse.builder()
+                .taskId(task.getId())
+                .status(status)
+                .progress(status == AsyncEvaluationResponse.TaskStatus.COMPLETED ? 100 : 0)
+                .result(result)
+                .errorMessage(task.getErrorMessage())
+                .createdAt(task.getCreatedAt())
+                .completedAt(task.getCompletedAt())
+                .estimatedSecondsRemaining(status == AsyncEvaluationResponse.TaskStatus.COMPLETED ? 0 : null)
+                .build();
     }
 }
