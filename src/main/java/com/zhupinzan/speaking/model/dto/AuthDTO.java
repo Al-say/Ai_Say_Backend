@@ -229,6 +229,24 @@ public class AuthDTO {
     ) {}
 
     /**
+     * 传统登录请求对象
+     */
+    public record LoginReq(
+        String username,
+        String password
+    ) {}
+
+    /**
+     * 用户注册请求对象
+     */
+    public record RegisterReq(
+        String username,
+        String password,
+        String email,
+        String displayName
+    ) {}
+
+    /**
      * 认证响应对象
      *
      * <p><b>作用：</b>封装认证成功后返回给客户端的数据</p>

@@ -1,13 +1,18 @@
 package com.zhupinzan.speaking.service;
 
+import com.zhupinzan.speaking.config.AppleSignInConfig;
+import com.zhupinzan.speaking.model.dto.AuthDTO;
 import com.zhupinzan.speaking.repository.UserAccountRepository;
 import com.zhupinzan.speaking.repository.DeviceRepository;
 import com.zhupinzan.speaking.util.CurrentUserInfo;
 import com.zhupinzan.speaking.model.entity.UserAccount;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.server.ResponseStatusException;
 import lombok.extern.slf4j.Slf4j;
+
+import java.lang.reflect.Method;
 
 /**
  * 用户认证服务 - 设备绑定与身份验证管理
@@ -53,6 +58,27 @@ public class AuthUserService {
     private final DeviceRepository deviceRepository;
 
     /**
+     * 密码编码器
+     * <p>
+     * 用于密码加密和验证的安全组件
+     */
+    private final PasswordEncoder passwordEncoder;
+
+    /**
+     * Apple登录配置
+     * <p>
+     * 提供JWT令牌生成和配置信息
+     */
+    private final AppleSignInConfig appleSignInConfig;
+
+    /**
+     * Apple登录服务
+     * <p>
+     * 用于生成JWT令牌
+     */
+    private final AppleSignInService appleSignInService;
+
+    /**
      * 构造函数注入 - 依赖注入模式
      * <p>
      * 通过构造函数注入所有依赖的Repository，确保：
@@ -60,9 +86,16 @@ public class AuthUserService {
      * • 依赖清晰：明确显示服务所需的所有依赖
      * • 测试友好：便于Mock测试
      */
-    public AuthUserService(UserAccountRepository userAccountRepository, DeviceRepository deviceRepository) {
+    public AuthUserService(UserAccountRepository userAccountRepository,
+                          DeviceRepository deviceRepository,
+                          PasswordEncoder passwordEncoder,
+                          AppleSignInConfig appleSignInConfig,
+                          AppleSignInService appleSignInService) {
         this.userAccountRepository = userAccountRepository;
         this.deviceRepository = deviceRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.appleSignInConfig = appleSignInConfig;
+        this.appleSignInService = appleSignInService;
     }
 
   // ====== 核心认证方法 ======
@@ -240,6 +273,115 @@ public class AuthUserService {
         userAccountRepository.save(account);
 
         log.info("设备绑定成功，用户ID: {}, 设备ID: {}", userId, cleanedDeviceId);
+    }
+
+    /**
+     * 用户注册方法
+     * <p>
+     * 处理用户注册逻辑，包括：
+     * • 用户名唯一性检查
+     * • 邮箱唯一性检查（如果提供）
+     * • 密码加密存储
+     * • 创建用户账户
+     * </p>
+     *
+     * @param req 注册请求DTO
+     * @throws IllegalArgumentException 当参数无效或用户名/邮箱已存在时
+     */
+    public void register(AuthDTO.RegisterReq req) {
+        log.info("开始用户注册，用户名: {}", req.username());
+
+        // 验证用户名唯一性
+        if (userAccountRepository.findByUsername(req.username()).isPresent()) {
+            throw new IllegalArgumentException("用户名已存在");
+        }
+
+        // 验证邮箱唯一性（如果提供）
+        if (req.email() != null && !req.email().isBlank()) {
+            if (userAccountRepository.findByEmail(req.email()).isPresent()) {
+                throw new IllegalArgumentException("邮箱已被注册");
+            }
+        }
+
+        // 创建新用户账户
+        UserAccount account = new UserAccount();
+        account.setUsername(req.username());
+        account.setPasswordHash(passwordEncoder.encode(req.password()));
+        account.setEmail(req.email());
+        account.setDisplayName(req.displayName() != null ? req.displayName() : req.username());
+
+        userAccountRepository.save(account);
+        log.info("用户注册成功，用户名: {}", req.username());
+    }
+
+    /**
+     * 用户登录方法
+     * <p>
+     * 处理传统用户名密码登录，包括：
+     * • 用户名查找用户
+     * • 密码验证
+     * • JWT令牌生成
+     * • 更新最后登录时间
+     * </p>
+     *
+     * @param req 登录请求DTO
+     * @return 认证响应DTO，包含JWT令牌和用户信息
+     * @throws IllegalArgumentException 当用户名不存在或密码错误时
+     */
+    public AuthDTO.AuthResp login(AuthDTO.LoginReq req) {
+        log.info("开始用户登录，用户名: {}", req.username());
+
+        // 根据用户名查找用户
+        UserAccount account = userAccountRepository.findByUsername(req.username())
+                .orElseThrow(() -> new IllegalArgumentException("用户名不存在"));
+
+        // 验证密码
+        if (!passwordEncoder.matches(req.password(), account.getPasswordHash())) {
+            throw new IllegalArgumentException("密码错误");
+        }
+
+        // 更新最后登录时间
+        account.setLastLoginAt(java.time.OffsetDateTime.now());
+        userAccountRepository.save(account);
+
+        // 生成JWT令牌
+        String accessToken;
+        try {
+            accessToken = generateAccessToken(account);
+        } catch (Exception e) {
+            log.error("生成JWT令牌失败", e);
+            throw new RuntimeException("登录失败，请重试");
+        }
+
+        // 构造响应
+        AuthDTO.AuthUser authUser = new AuthDTO.AuthUser(
+            account.getId(),
+            account.getAppleSub(),
+            account.getEmail(),
+            account.getEmailVerified(),
+            account.getDisplayName(),
+            account.getDeviceId()
+        );
+
+        log.info("用户登录成功，用户名: {}", req.username());
+        return new AuthDTO.AuthResp(accessToken, 3600L, authUser); // 默认1小时过期
+    }
+
+    /**
+     * 生成访问令牌
+     * <p>
+     * 通过反射调用AppleSignInService的私有令牌生成方法
+     * </p>
+     *
+     * @param account 用户账户
+     * @return JWT访问令牌
+     * @throws Exception 令牌生成异常
+     */
+    private String generateAccessToken(UserAccount account) throws Exception {
+        // 通过反射调用AppleSignInService的私有方法
+        Method method = AppleSignInService.class.getDeclaredMethod("generateAccessToken", UserAccount.class);
+        method.setAccessible(true);
+        return (String) method.invoke(appleSignInService, account);
     }
 
     /**

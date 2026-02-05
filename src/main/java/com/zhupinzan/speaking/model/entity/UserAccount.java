@@ -40,16 +40,38 @@ public class UserAccount {
      */
     private Long id;
 
-    @Column(name = "apple_sub", nullable = false, unique = true, length = 128)
+    @Column(name = "apple_sub", unique = true, length = 128)
     /**
      * Apple用户标识符
      * 【业务含义】Apple ID的用户唯一标识符（Subject）
      * 【数据类型】String(128) - JWT中的sub字段值
-     * 【业务规则】必填且唯一，是系统的用户认证基础
+     * 【业务规则】可为空，支持传统登录方式
      * 【认证机制】使用Apple Sign-In的JWT进行身份验证
-     * 【设计考虑】采用第三方认证，无需用户密码
+     * 【设计考虑】支持多种登录方式
      */
     private String appleSub;
+
+    @Column(name = "username", unique = true, length = 64)
+    /**
+     * 用户名
+     * 【业务含义】传统登录方式的用户名
+     * 【数据类型】String(64) - 用户名格式
+     * 【业务规则】可为空，支持Apple登录方式
+     * 【认证机制】用户名+密码登录
+     * 【设计考虑】支持多种登录方式
+     */
+    private String username;
+
+    @Column(name = "password_hash", length = 256)
+    /**
+     * 密码哈希
+     * 【业务含义】传统登录方式的密码哈希
+     * 【数据类型】String(256) - BCrypt哈希格式
+     * 【业务规则】可为空，支持Apple登录方式
+     * 【安全机制】使用BCrypt加密存储
+     * 【设计考虑】支持多种登录方式
+     */
+    private String passwordHash;
 
     @Column(name = "email", length = 256)
     /**

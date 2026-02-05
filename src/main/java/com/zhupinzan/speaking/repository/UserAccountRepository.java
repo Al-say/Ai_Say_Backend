@@ -34,35 +34,38 @@ import java.util.Optional;
 public interface UserAccountRepository extends JpaRepository<UserAccount, Long> {
 
     /**
-     * 根据Apple订阅标识查询用户账户
+     * 根据用户名查询用户账户
      *
      * <p>方法说明：
-     * 此方法用于通过Apple身份验证返回的sub（subject）字段来查找对应的用户账户。
-     * 这是Apple认证流程中的关键查询，用于确认用户身份并建立会话。
+     * 此方法用于通过用户名查找对应的用户账户。
+     * 用于传统用户名密码登录的身份验证。
      *
-     * <p>参数详细说明：
-     * @param appleSub Apple身份验证服务返回的用户唯一标识符，格式为UUID字符串
-     *                 这是Apple生态系统中的用户身份标识，在应用生命周期内保持不变
-     *
-     * <p>返回值说明：
+     * @param username 用户名
      * @return Optional<UserAccount> 包含用户账户的可选容器
-     *         - 如果找到匹配的用户账户，返回包含UserAccount对象的Optional
-     *         - 如果未找到匹配的用户，返回空的Optional
-     *         使用Optional避免空指针异常，符合最佳实践
+     */
+    Optional<UserAccount> findByUsername(String username);
+
+    /**
+     * 根据邮箱查询用户账户
      *
-     * <p>业务场景说明：
-     * 1. 用户登录流程：Apple认证成功后，使用sub查询本地用户账户
-     * 2. 用户注册流程：如果查询结果为空，说明是新用户，需要创建新账户
-     * 3. 会话管理：在Spring Security中用于Principal的识别和授权
+     * <p>方法说明：
+     * 此方法用于通过邮箱地址查找对应的用户账户。
+     * 用于邮箱唯一性验证和可能的邮箱登录功能。
      *
-     * <p>性能优化建议：
-     * - 确保appleSub字段在数据库中有唯一索引
-     * - 考虑appleSub字段的长度，适当限制数据库字段大小
-     * - 在高并发场景下，考虑使用缓存存储常用用户账户
+     * @param email 邮箱地址
+     * @return Optional<UserAccount> 包含用户账户的可选容器
+     */
+    Optional<UserAccount> findByEmail(String email);
+
+    /**
+     * 根据Apple用户标识符查询用户账户
      *
-     * <p>异常处理：
-     * - 方法本身不直接抛出异常，由Spring Data JPA处理数据库异常
-     * - 调用方需要处理Optional.get()可能抛出的NoSuchElementException
+     * <p>方法说明：
+     * 此方法用于通过Apple ID的sub字段查找对应的用户账户。
+     * 用于Apple Sign-In认证的身份验证。
+     *
+     * @param appleSub Apple用户标识符
+     * @return Optional<UserAccount> 包含用户账户的可选容器
      */
     Optional<UserAccount> findByAppleSub(String appleSub);
 }

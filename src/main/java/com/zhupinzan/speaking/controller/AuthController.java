@@ -93,6 +93,75 @@ public class AuthController {
     }
 
     /**
+     * 用户注册端点
+     * <p>
+     * 该接口处理用户注册请求，支持传统用户名密码注册方式。
+     * 注册成功后自动登录并返回JWT令牌。
+     * </p>
+     *
+     * @param req 注册请求，包含用户名、密码、邮箱等信息
+     * @return ResponseEntity 包含认证成功后的用户信息和访问令牌
+     * @throws ResponseStatusException 当注册失败时抛出相应的HTTP异常
+     */
+    @PostMapping("/register")
+    public ResponseEntity<String> register(@RequestBody AuthDTO.RegisterReq req) {
+        try {
+            // 验证输入参数
+            if (req == null || req.username() == null || req.username().isBlank()) {
+                throw new IllegalArgumentException("用户名不能为空");
+            }
+            if (req.password() == null || req.password().length() < 6) {
+                throw new IllegalArgumentException("密码长度不能少于6位");
+            }
+
+            // 调用注册服务
+            authUserService.register(req);
+
+            return ResponseEntity.ok("User registered successfully!");
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
+        } catch (Exception e) {
+            logger.error("用户注册失败", e);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "注册失败");
+        }
+    }
+
+    /**
+     * 用户登录端点
+     * <p>
+     * 该接口处理传统用户名密码登录请求。
+     * 验证用户凭据后生成JWT令牌返回。
+     * </p>
+     *
+     * @param req 登录请求，包含用户名和密码
+     * @return ResponseEntity 包含认证成功后的用户信息和访问令牌
+     * @throws ResponseStatusException 当登录失败时抛出相应的HTTP异常
+     */
+    @PostMapping("/login")
+    public ResponseEntity<AuthDTO.AuthResp> login(@RequestBody AuthDTO.LoginReq req) {
+        try {
+            // 验证输入参数
+            if (req == null || req.username() == null || req.username().isBlank()) {
+                throw new IllegalArgumentException("用户名不能为空");
+            }
+            if (req.password() == null || req.password().isBlank()) {
+                throw new IllegalArgumentException("密码不能为空");
+            }
+
+            // 调用登录服务
+            return ResponseEntity.ok(authUserService.login(req));
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
+        } catch (RuntimeException e) {
+            logger.error("用户登录失败", e);
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "用户名或密码错误");
+        } catch (Exception e) {
+            logger.error("登录异常", e);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "服务器内部错误");
+        }
+    }
+
+    /**
      * Apple ID登录认证端点
      * <p>
      * 该接口处理用户通过Apple ID登录的认证流程。Apple ID登录是应用的主要认证方式，

@@ -5,8 +5,10 @@ target/
 .idea/
 *.iml
 
-# 敏感配置文件，防止API密钥泄漏
+# 敏感配置文件和环境变量，防止API密钥泄漏
 src/main/resources/application.properties
+.env
+.env.local
 
 # 上传的文件目录
 uploads/
