@@ -104,58 +104,55 @@ public class DeepSeekEvalService {
 
     /**
      * AI智能评分核心方法 - 实现口语评估的主入口
-     * <p>
-        // ====== AI评分核心执行流程 ======
-
-        // 【前置信息记录】
+     *
+     * @param persona    用户画像类型（备考党/职场人等），影响评估的侧重点
+     * @param scene      评估场景（日常练习/模拟面试等），提供上下文信息
+     * @param transcript ASR转换得到的文字内容，是评估的直接依据
+     * @return DeepSeekEvalResult 包含多维度评分和详细反馈的评估结果
+     * @throws IllegalArgumentException 当输入参数无效时
+     */
+    @Retry(name = "deepseek")
+    @CircuitBreaker(name = "deepseek", fallbackMethod = "fallbackEval")
+    public DeepSeekEvalResult evaluate(UserPersona persona, String scene, String transcript) {
         log.info("🤖 开始DeepSeek评分 - 画像: {}, 场景: {}, 文本长度: {}",
                 persona, scene, transcript == null ? 0 : transcript.length());
 
-        // 【步骤1】输入数据校验 - 有效性过滤
-        // 智能的前置校验，避免无效请求浪费API资源
         if (transcript == null || transcript.trim().isEmpty()) {
             log.warn("转录文本为空，返回无效输入结果");
             return DeepSeekEvalResult.noSpeech();
         }
 
-        // 检查文本长度是否足够进行有效评估
         String[] words = transcript.trim().split("\\s+");
         if (words.length < 5) {
             log.warn("转录文本过短（{}词），无法进行有效评估", words.length);
             return DeepSeekEvalResult.fallback("invalid_input", "Transcript too short: need at least 5 words");
         }
 
-        // 【步骤2】提示词工程 - 定制化评估策略
-        // 使用PromptFactory构建结构化的提示词，这是获取高质量评估的关键
         String systemPrompt = PromptFactory.buildSystemPrompt();
         String userPrompt = PromptFactory.buildUserPrompt(persona, scene, transcript);
 
         log.debug("系统提示词长度: {}, 用户提示词长度: {}",
                 systemPrompt.length(), userPrompt.length());
 
-        // 构造符合OpenAI API规范的请求体
         Map<String, Object> body = Map.of(
-                "model", "deepseek-chat",          // 指定使用的模型版本
-                "messages", new Object[] {         // 消息数组，包含系统指令和用户输入
+                "model", "deepseek-chat",
+                "messages", new Object[] {
                         Map.of("role", "system", "content", systemPrompt),
                         Map.of("role", "user", "content", userPrompt)
                 },
-                "temperature", 0.2);               // 温度参数，控制随机性（0.2=低随机性，结果更稳定）
+                "temperature", 0.2);
 
-        // 【步骤3】API调用执行 - 异步HTTP请求
-        // 使用WebClient进行异步调用，配置了完善的错误处理和超时控制
         try {
             String raw = deepSeekWebClient.post()
-                    .uri("/v1/chat/completions")      // OpenAI兼容的API端点
-                    .bodyValue(body)                   // 发送构造的请求体
-                    .retrieve()                        // 执行请求
-                    .onStatus(status -> status.is4xxClientError(),  // 4xx错误处理
+                    .uri("/v1/chat/completions")
+                    .bodyValue(body)
+                    .retrieve()
+                    .onStatus(status -> status.is4xxClientError(),
                             resp -> resp.bodyToMono(String.class)
                                     .map(msg -> new IllegalArgumentException("DeepSeek 4xx错误: " + msg)))
-                    .bodyToMono(String.class)          // 响应体为字符串
-                    .block(Duration.ofSeconds(30));      // 30秒阻塞超时
+                    .bodyToMono(String.class)
+                    .block(Duration.ofSeconds(30));
 
-            // 记录响应信息（敏感信息脱敏处理）
             if (raw != null && raw.length() > 500) {
                 log.debug("DeepSeek响应（截断）: {}...{}",
                         raw.substring(0, 200), raw.substring(raw.length() - 200));
@@ -163,12 +160,11 @@ public class DeepSeekEvalService {
                 log.debug("DeepSeek响应: {}", raw);
             }
 
-            // 【步骤4】响应解析与返回
             return parseJsonResponse(raw);
 
         } catch (Exception e) {
             log.error("DeepSeek API调用异常: {}", e.getMessage());
-            throw e;  // 让@Retry和@CircuitBreaker注解处理异常
+            throw e;
         }
     }
 

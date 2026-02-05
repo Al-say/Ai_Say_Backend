@@ -8,6 +8,9 @@ import com.zhupinzan.speaking.repository.DeviceRepository;
 import com.zhupinzan.speaking.util.CurrentUserInfo;
 import com.zhupinzan.speaking.util.JwtUtil;
 import com.zhupinzan.speaking.model.entity.UserAccount;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -35,7 +38,7 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Service
 @Slf4j
-public class AuthUserService {
+public class AuthUserService implements UserDetailsService {
 
     /**
      * 用户账号数据仓库
@@ -398,5 +401,13 @@ public class AuthUserService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "账户不能为空");
         }
         return userAccountRepository.save(account);
+    }
+
+    @Override
+    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+        // The "username" for our JWT is the email address.
+        return userAccountRepository.findByEmail(username)
+                .orElseThrow(() ->
+                        new UsernameNotFoundException("User not found with email: " + username));
     }
 }

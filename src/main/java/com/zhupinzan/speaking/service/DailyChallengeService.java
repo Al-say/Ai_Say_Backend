@@ -66,6 +66,46 @@ import java.util.Map;
  *   <li><b>AI生成失败</b>：通过 try-catch 块捕获所有来自 {@code TopicGeneratorTask} 的异常，记录错误日志，并触发 {@code createFallback} 逻辑，无缝切换到兜底题目。</li>
  *   <li><b>持久化失败</b>：同样通过 try-catch 块捕获数据库操作异常。为了最大限度保证用户体验，即使持久化失败，也会将生成的临时题目对象返回给前端，同时抛出 {@link DailyTopicPersistenceException} 以便上层统一处理和监控。这种策略保证了前端在数据库短暂故障时仍能工作。</li>
  * </ul>
+ *
+ * <h3>潜在 Bug 及常见问题 (Potential Bugs and Common Issues)</h3>
+ * <p>在 {@code DailyChallengeService} 的运行中，以下是一些可能出现的 bug 或常见问题，需要开发和运维人员特别注意：</p>
+ * <ol>
+ *   <li><b>数据库唯一约束冲突 (Unique Constraint Violation)</b>：
+ *       <ul>
+ *         <li><b>现象</b>：当尝试使用 UPSERT 机制（`INSERT ... ON CONFLICT ...`）保存 DailyTopic 时，如果数据库表中缺少针对 `(for_date, persona)` 的唯一约束（UNIQUE INDEX 或 PRIMARY KEY），则 UPSERT 操作会失败，导致 `ERROR: there is no unique or exclusion constraint matching the ON CONFLICT specification` 错误。</li>
+ *         <li><b>原因</b>：DDL 自动生成工具（如 Hibernate `ddl-auto`）可能不会为非主键字段自动创建唯一的复合索引。</li>
+ *         <li><b>解决方案</b>：手动在数据库中为 `daily_topics` 表的 `(for_date, persona)` 列添加唯一约束。</li>
+ *       </ul>
+ *   </li>
+ *   <li><b>AI服务调用失败 (AI Service Call Failure)</b>：
+ *       <ul>
+ *         <li><b>现象</b>：AI 题目生成（`TopicGeneratorTask.generateFor`）抛出异常，日志中出现 `AI题目生成失败`。这会导致服务降级到兜底题目。</li>
+ *         <li><b>原因</b>：网络问题、DeepSeek API 不可用、API Key 过期或错误、请求参数不符合 AI 接口规范、AI 服务返回了不符合预期的响应格式。</li>
+ *         <li><b>解决方案</b>：检查网络连接、验证 `deepseek.api.key` 和 `deepseek.api.url` 配置、检查 AI 服务状态、分析 AI 服务的日志和响应体。</li>
+ *       </ul>
+ *   </li>
+ *   <li><b>JSON 序列化/反序列化问题 (JSON Serialization/Deserialization)</b>：
+ *       <ul>
+ *         <li><b>现象</b>：在将 `DailyTopic` 的 `payload` 字段保存为 JSONB 类型时，或从 AI 服务解析 JSON 响应时，可能发生 `JsonProcessingException` 或其他 JSON 格式错误。</li>
+ *         <li><b>原因</b>：`ObjectMapper` 序列化对象失败，或 AI 服务返回的 JSON 字符串结构与预期的 `TopicGenerationResponse` 不匹配。</li>
+ *         <li><b>解决方案</b>：确保 `payload` 对象总是可以被正确序列化，并对 AI 服务的响应进行严格的结构验证和健壮的错误处理。</li>
+ *       </ul>
+ *   </li>
+ *   <li><b>并发竞争问题 (Concurrency Issues)</b>：
+ *       <ul>
+ *         <li><b>现象</b>：在极高并发场景下，多个请求同时尝试为同一天同一用户画像生成题目，可能导致性能下降或不必要的工作重复。</li>
+ *         <li><b>原因</b>：尽管 `getOrCreate` 采用了缓存和 UPSERT 机制，但在缓存失效的瞬间，仍可能出现短暂的竞争窗口。</li>
+ *         <li><b>解决方案</b>：利用分布式锁（如基于 Redis 的锁）进一步优化热点数据的并发访问。</li>
+ *       </ul>
+ *   </li>
+ *   <li><b>配置错误 (Configuration Errors)</b>：
+ *       <ul>
+ *         <li><b>现象</b>：服务启动失败或 AI 调用、数据库连接异常。</li>
+ *         <li><b>原因</b>：`application.properties` 或环境变量中 `deepseek.api.key`、`deepseek.api.url`、数据库连接信息等配置错误。</li>
+ *         <li><b>解决方案</b>：仔细检查所有相关的配置项，确保其正确性和有效性。</li>
+ *       </ul>
+ *   </li>
+ * </ol>
  */
 @Service
 @Slf4j

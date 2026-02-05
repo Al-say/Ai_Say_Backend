@@ -1,7 +1,7 @@
 package com.zhupinzan.speaking.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.zhupinzan.speaking.model.TaskStatus;
+import com.zhupinzan.speaking.model.dto.AsyncEvaluationResponse;
 import com.zhupinzan.speaking.model.dto.EvaluationRequest;
 import com.zhupinzan.speaking.model.entity.EvaluationTask;
 import com.zhupinzan.speaking.repository.EvaluationTaskRepository;
@@ -35,15 +35,15 @@ public class AsyncEvaluationService {
         try {
             // 2. 调用 AI
             // 假设 deepSeekService.evaluate 返回的是一个对象，我们转成 JSON 存起来
-            Object assessmentResult = deepSeekService.evaluate(request.getText());
+            Object assessmentResult = deepSeekService.evaluate(request.getTranscript());
             
-            task.setResultJson(objectMapper.writeValueAsString(assessmentResult));
-            task.setStatus(TaskStatus.COMPLETED);
+            task.setResult(objectMapper.convertValue(assessmentResult, com.zhupinzan.speaking.model.dto.DeepSeekEvalResult.class));
+            task.setStatus(AsyncEvaluationResponse.TaskStatus.COMPLETED);
             task.setCompletedAt(LocalDateTime.now());
             
         } catch (Exception e) {
             log.error("Task failed: {}", taskId, e);
-            task.setStatus(TaskStatus.FAILED);
+            task.setStatus(AsyncEvaluationResponse.TaskStatus.FAILED);
             task.setErrorMessage(e.getMessage());
         } finally {
             // 3. 💾 最终状态落库
@@ -58,9 +58,9 @@ public class AsyncEvaluationService {
         // 1. 先在数据库占个位
         EvaluationTask task = new EvaluationTask();
         task.setId(taskId);
-        task.setUserEmail(userEmail);
-        task.setOriginalText(request.getText());
-        task.setStatus(TaskStatus.PENDING);
+        task.setUserIdentity(userEmail);
+        task.setTranscript(request.getTranscript());
+        task.setStatus(AsyncEvaluationResponse.TaskStatus.PENDING);
         taskRepository.save(task);
 
         // 2. 触发异步处理
@@ -76,6 +76,6 @@ public class AsyncEvaluationService {
 
     // 获取用户历史
     public List<EvaluationTask> getUserHistory(String userEmail) {
-        return taskRepository.findByUserEmailOrderByCreatedAtDesc(userEmail);
+        return taskRepository.findByUserIdentityOrderByCreatedAtDesc(userEmail);
     }
 }

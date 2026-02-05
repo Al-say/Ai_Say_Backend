@@ -6,5 +6,5 @@ import java.util.List;
 
 public interface EvaluationTaskRepository extends JpaRepository<EvaluationTask, String> {
     // 🔍 关键查询：找某个用户的所有历史记录，按时间倒序
-    List<EvaluationTask> findByUserIdentityOrderByCreatedAtDesc(String userIdentity);
+    List<EvaluationTask> findByUserEmailOrderByCreatedAtDesc(String userEmail);
 }
