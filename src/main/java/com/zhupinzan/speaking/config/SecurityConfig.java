@@ -75,6 +75,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(authz -> authz
                 // 公开访问的端点（不需要认证）
                 .requestMatchers("/api/auth/**").permitAll()  // 认证接口
+                .requestMatchers("/api/home/daily").permitAll() // 每日挑战接口，允许匿名访问
                 .requestMatchers("/h2-console/**").permitAll()  // H2 控制台
                 .requestMatchers("/actuator/**").permitAll()  // 健康检查
                 .requestMatchers("/api/v1/evaluate/health").permitAll()  // API 健康检查

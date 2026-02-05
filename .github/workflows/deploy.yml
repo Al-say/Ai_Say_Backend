@@ -43,7 +43,7 @@ jobs:
         echo 'RUN apt-get update && apt-get install -y ffmpeg' >> Dockerfile
         
         # 复制 JAR 包
-        echo 'COPY target/speaking-0.0.1-SNAPSHOT.jar app.jar' >> Dockerfile
+        echo 'COPY target/speaking-0.0.1-SNAPSHOT.jar /app.jar' >> Dockerfile
         
         # 入口点 (保持不变，含 H2 防御)
         echo 'ENTRYPOINT ["java", "-Dspring.datasource.driver-class-name=org.postgresql.Driver", "-Dspring.jpa.hibernate.ddl-auto=update", "-jar", "/app.jar"]' >> Dockerfile
@@ -83,7 +83,6 @@ jobs:
             --restart always \
             -p 2580:2580 \
             --link postgres-db:db \
-            # 🔥 新增：告诉程序 FFmpeg 在哪
             -e FFMPEG_PATH='/usr/bin/ffmpeg' \
             -e FFPROBE_PATH='/usr/bin/ffprobe' \
             -e SPRING_DATASOURCE_URL='${{ secrets.DB_URL }}' \
