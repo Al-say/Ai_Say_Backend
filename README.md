@@ -4,22 +4,23 @@
 
 基于 Spring Boot 3.2.0 + Java 21 的企业级 AI 英语口语练习应用后端服务。
 
-## ✨ 最新更新（2026-02-06）
+## ✨ 最新更新（2026-02-24）
 
-### 🚀 架构升级亮点
+### 🚀 架构简化亮点
 
+- ✅ **移除 Apple Sign-In**: 统一使用用户名/邮箱 + 密码登录，降低集成复杂度
+- ✅ **移除 S3/MinIO**: 改用本地文件存储（`LocalStorageService`），无需额外部署对象存储
 - ✅ **异步任务架构**: 解决 AI 评估长延迟问题（5-30秒），避免 HTTP 超时
 - ✅ **零信任安全**: 所有敏感配置使用环境变量，杜绝密钥泄露风险
-- ✅ **数据契约标准化**: 定义清晰的 Request/Response DTO，前后端并行开发
-- ✅ **Prompt 工程优化**: 三层解析防护 + 降级策略，确保 AI 稳定输出 JSON
-- ✅ **完整文档体系**: 架构决策、测试手册、快速启动指南
+- ✅ **CI 测试全绿**: 8 项测试 0 错误，APPLICATION_CONTEXT 加载稳定
+- ✅ **Docker 简化**: docker-compose 只需 PostgreSQL + 应用，启动更快
 
-### 🐛 最新修复
+### 🐛 已修复
 
-- ✅ **编译错误修复**: 修复 AsyncEvaluationService 和 EvaluationController 中的API调用错误
-- ✅ **字段映射修正**: 更新 getText() → getTranscript(), userEmail → userIdentity
-- ✅ **Docker优化**: 支持容器内Maven构建，集成FFmpeg音频处理
-- ✅ **测试通过**: 所有单元测试通过，应用正常启动
+- ✅ **CI 测试修复**: 补充 `scene.prompts.*` 等缺失配置，测试上下文稳定加载
+- ✅ **编译错误修复**: 修复 `UrlBasedCorsConfigurationSource` import 路径
+- ✅ **Docker优化**: 使用 `amazoncorretto:21` 基础镜像，集成 FFmpeg 音频处理
+- ✅ **代码清理**: 移除未使用的 AWS SDK、nimbus-jose-jwt 等重型依赖
 
 ### 📚 核心文档
 
@@ -112,7 +113,7 @@ GitHub Actions 会在每次推送和 PR 时自动运行：
 - **用户画像系统**: 支持备考党（EXAM_PREP）和职场人（CAREER_GROWTH）两种用户类型
 - **每日挑战**: 数据库缓存 AI 生成的话题，提升性能和稳定性
 - **音频处理**: FFmpeg 转码支持多格式音频输入
-- **对象存储**: MinIO（S3 兼容）存储音频文件
+- **本地文件存储**: `LocalStorageService` 存储音频文件（`./uploads` 目录）
 - **弹性容错**: Resilience4j 实现重试/熔断机制
 
 ### 📱 API 模块
@@ -134,7 +135,7 @@ GitHub Actions 会在每次推送和 PR 时自动运行：
 | **语言** | Java 21（虚拟线程支持） |
 | **数据库** | PostgreSQL + JPA/Hibernate |
 | **AI 服务** | DeepSeek API（智能评分），百度 ASR API（语音识别） |
-| **对象存储** | MinIO（S3 兼容） |
+| **文件存储** | 本地文件系统（`./uploads`，可扩展为云存储） |
 | **音频处理** | FFmpeg |
 | **弹性容错** | Resilience4j（重试/熔断） |
 | **异步处理** | Spring @Async + 自定义线程池（新增） |
