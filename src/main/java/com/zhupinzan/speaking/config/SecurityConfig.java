@@ -16,6 +16,11 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.password.PasswordEncoder; // 导入 PasswordEncoder
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.List;
 
 /**
  * Spring Security 配置 - 系统安全防护墙
@@ -95,9 +100,60 @@ public class SecurityConfig {
             // 配置自定义的 AuthenticationProvider
             .authenticationProvider(authenticationProvider())
             // 在 UsernamePasswordAuthenticationFilter 之前插入 JWT 过滤器
-            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+
+            // 配置CORS
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()));
 
         return http.build();
+    }
+
+    /**
+     * CORS 配置源
+     * <p>
+     * 配置跨域资源共享，允许前端应用访问后端API
+     * </p>
+     *
+     * @return CORS配置源
+     */
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+
+        // 允许的源（根据环境配置）
+        configuration.setAllowedOriginPatterns(List.of(
+            "http://localhost:*",      // 本地开发
+            "http://127.0.0.1:*",     // 本地开发
+            "http://192.168.*.*:*",   // 内网IP
+            "http://10.*.*.*:*"       // 内网IP
+        ));
+
+        // 允许的HTTP方法
+        configuration.setAllowedMethods(List.of(
+            "GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"
+        ));
+
+        // 允许的请求头
+        configuration.setAllowedHeaders(List.of(
+            "Authorization",
+            "Content-Type",
+            "Accept",
+            "Origin",
+            "X-Requested-With",
+            "Access-Control-Request-Method",
+            "Access-Control-Request-Headers"
+        ));
+
+        // 允许发送凭据（cookies, authorization headers）
+        configuration.setAllowCredentials(true);
+
+        // 预检请求缓存时间（秒）
+        configuration.setMaxAge(3600L);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+
+        return source;
     }
 
     /**

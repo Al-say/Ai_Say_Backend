@@ -26,6 +26,7 @@
 | 文档 | 说明 |
 |------|------|
 | [快速启动指南](docs/快速启动指南.md) | 3 步开始使用 |
+| [故障排除指南](TROUBLESHOOTING.md) | 🔧 常见问题解决方案 |
 | [智能架构搭建报告](docs/智能架构搭建报告.md) | 架构设计与实现细节 |
 | [API 测试示例](docs/API测试示例.md) | 完整测试流程与命令 |
 | [前端对接文档](docs/前端对接文档.md) | 前端接口对接说明 |
@@ -159,6 +160,21 @@ GitHub Actions 会在每次推送和 PR 时自动运行：
 | 职场人 | `CAREER_GROWTH` | 商务英语用户  | 务实简洁风，注重清晰表达和商务习语 |
 
 ## 快速开始
+
+### 🚀 一键启动（推荐）
+
+```bash
+# 1. 运行前环境检查（避免常见问题）
+./check-before-run.sh
+
+# 2. 启动应用
+mvn spring-boot:run
+
+# 3. 验证启动
+curl http://localhost:2580/api/v1/evaluate/health
+```
+
+> 💡 **重要提醒**：每次启动前都运行 `./check-before-run.sh` 可以避免端口占用、Java版本等常见问题！
 
 ### 环境要求
 
