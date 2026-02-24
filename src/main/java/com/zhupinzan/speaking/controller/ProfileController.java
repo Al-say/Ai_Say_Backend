@@ -6,6 +6,7 @@ import com.zhupinzan.speaking.service.LoginHistoryService;
 import com.zhupinzan.speaking.service.storage.LocalStorageService;
 import com.zhupinzan.speaking.util.CurrentUser;
 import com.zhupinzan.speaking.util.CurrentUserInfo;
+import java.util.Map;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -393,7 +394,7 @@ public class ProfileController {
     @PostMapping("/device")
     public ResponseEntity<?> bindDevice(@CurrentUser CurrentUserInfo user, @RequestBody BindDeviceReq req) {
         authUserService.bindDevice(user, req == null ? null : req.deviceId());
-        return ResponseEntity.ok(new StatusResp("ok"));
+        return ResponseEntity.ok(Map.of("status", "success", "message", "Device bound successfully"));
     }
 
     /**

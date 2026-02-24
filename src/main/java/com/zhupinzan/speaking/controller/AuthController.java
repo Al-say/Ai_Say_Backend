@@ -4,6 +4,7 @@ import com.zhupinzan.speaking.model.dto.AuthDTO;
 import com.zhupinzan.speaking.service.AuthUserService;
 import com.zhupinzan.speaking.util.CurrentUser;
 import com.zhupinzan.speaking.util.CurrentUserInfo;
+import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -267,8 +268,8 @@ public class AuthController {
             // 如果req为null，则传入null；否则传入其中的deviceId
             authUserService.bindDevice(user, req == null ? null : req.deviceId());
 
-            // 绑定成功，返回空响应（HTTP 200 OK）
-            return ResponseEntity.ok().build();
+            // 绑定成功，返回标准 JSON 确认
+            return ResponseEntity.ok(Map.of("status", "success", "message", "Device bound successfully"));
         } catch (IllegalArgumentException e) {
             // 参数错误：设备ID格式无效或重复
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
