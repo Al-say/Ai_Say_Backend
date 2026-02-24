@@ -1,97 +1,144 @@
-name: Deploy via Aliyun ACR (Professional)
+name: CI/CD Deploy
 
 on:
   push:
     branches: [ "master" ]
 
+env:
+  IMAGE_TAG: ${{ secrets.DOCKER_REGISTRY }}/${{ secrets.IMAGE_NAME }}:latest
+  IMAGE_TAG_SHA: ${{ secrets.DOCKER_REGISTRY }}/${{ secrets.IMAGE_NAME }}:${{ github.sha }}
+
 jobs:
-  build-and-deploy:
+  # ── Job 1: 运行测试 ──────────────────────────────────
+  test:
+    name: Run Tests
     runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Run Unit Tests
+        run: mvn clean test -B
+
+  # ── Job 2: 构建、推送镜像并部署 ──────────────────────
+  build-and-deploy:
+    name: Build & Deploy
+    runs-on: ubuntu-latest
+    needs: test
 
     steps:
-    # 1. 极速拉取代码
-    - name: Checkout Code
-      uses: actions/checkout@v4
+      # 1. 拉取代码
+      - name: Checkout Code
+        uses: actions/checkout@v4
 
-    # 2. 设置 JDK 21
-    - name: Set up JDK 21
-      uses: actions/setup-java@v4
-      with:
-        java-version: '21'
-        distribution: 'temurin'
-        cache: 'maven'
+      # 2. 设置 JDK 21（Maven 缓存加速）
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
 
-    # 3. 编译 JAR 包
-    - name: Build JAR
-      run: mvn clean package -DskipTests
+      # 3. 编译打包（跳过测试，已在 Job 1 执行）
+      - name: Build JAR
+        run: mvn clean package -DskipTests -B
 
-    # 4. 登录阿里云镜像仓库 (GitHub 端)
-    - name: Login to Aliyun ACR
-      uses: docker/login-action@v3
-      with:
-        registry: ${{ secrets.DOCKER_REGISTRY }}
-        username: ${{ secrets.DOCKER_USERNAME }}
-        password: ${{ secrets.DOCKER_PASSWORD }}
+      # 4. 登录阿里云 ACR
+      - name: Login to Aliyun ACR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ secrets.DOCKER_REGISTRY }}
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
 
-    # 5. 构建并推送 Docker 镜像
-    - name: Build and Push Docker Image
-      run: |
-        # 使用基础镜像
-        echo 'FROM eclipse-temurin:21-jdk' > Dockerfile
-        
-        # 🔥 新增：安装 FFmpeg (这是关键！)
-        echo 'RUN apt-get update && apt-get install -y ffmpeg' >> Dockerfile
-        
-        # 复制 JAR 包
-        echo 'COPY target/speaking-0.0.1-SNAPSHOT.jar /app.jar' >> Dockerfile
-        
-        # 入口点 (保持不变，含 H2 防御)
-        echo 'ENTRYPOINT ["java", "-Dspring.datasource.driver-class-name=org.postgresql.Driver", "-Dspring.jpa.hibernate.ddl-auto=update", "-jar", "/app.jar"]' >> Dockerfile
-        
-        # 构建并推送
-        IMAGE_TAG="${{ secrets.DOCKER_REGISTRY }}/${{ secrets.IMAGE_NAME }}:latest"
-        docker build -t $IMAGE_TAG .
-        docker push $IMAGE_TAG
+      # 5. 构建并推送 Docker 镜像
+      #    使用 Dockerfile.simple（基于 amazoncorretto:21 + ffmpeg）
+      - name: Build and Push Docker Image
+        run: |
+          docker build -f Dockerfile.simple \
+            -t ${{ env.IMAGE_TAG }} \
+            -t ${{ env.IMAGE_TAG_SHA }} \
+            .
+          docker push ${{ env.IMAGE_TAG }}
+          docker push ${{ env.IMAGE_TAG_SHA }}
+          echo "✅ Image pushed: ${{ env.IMAGE_TAG }}"
 
-    # 🔥 关键修正：使用 key 参数进行 SSH 登录
-    - name: SSH Remote Deploy
-      uses: appleboy/ssh-action@master
-      with:
-        host: ${{ secrets.HOST }}
-        username: ${{ secrets.USERNAME }}
-        key: ${{ secrets.SERVER_PRIVATE_KEY }}  # 👈 确保这里用的是 key
-        script: |
-          # 定义镜像地址
-          IMAGE_TAG="${{ secrets.DOCKER_REGISTRY }}/${{ secrets.IMAGE_NAME }}:latest"
+      # 6. SSH 部署到服务器
+      - name: SSH Remote Deploy
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SERVER_PRIVATE_KEY }}
+          script: |
+            set -e
+            IMAGE_TAG="${{ secrets.DOCKER_REGISTRY }}/${{ secrets.IMAGE_NAME }}:latest"
+            CONTAINER="ai-backend"
 
-          echo "🚀 Starting Deployment..."
+            echo "🚀 ===== Starting Deployment ====="
+            echo "   Image: $IMAGE_TAG"
 
-          # 1. 登录阿里云 (服务器端也需要登录才能拉取)
-          docker login --username=${{ secrets.DOCKER_USERNAME }} --password=${{ secrets.DOCKER_PASSWORD }} ${{ secrets.DOCKER_REGISTRY }}
+            # 1. 修复 iptables 规则（确保 Docker 网络正常）
+            if iptables -L DOCKER-USER -n 2>/dev/null | grep -q "^DROP"; then
+              echo "⚠️  Removing stale DROP rule from DOCKER-USER chain..."
+              iptables -D DOCKER-USER -j DROP 2>/dev/null || true
+            fi
 
-          # 2. 拉取最新镜像
-          echo "📥 Pulling latest image..."
-          docker pull $IMAGE_TAG
+            # 2. 登录 ACR 并拉取最新镜像
+            echo "📥 Pulling latest image..."
+            docker login \
+              --username=${{ secrets.DOCKER_USERNAME }} \
+              --password=${{ secrets.DOCKER_PASSWORD }} \
+              ${{ secrets.DOCKER_REGISTRY }}
+            docker pull $IMAGE_TAG
 
-          # 3. 停止并删除旧容器
-          docker rm -f ai-backend || true
+            # 3. 停止并删除旧容器
+            echo "🛑 Stopping old container..."
+            docker rm -f $CONTAINER 2>/dev/null || true
 
-          # 4. 启动新容器 (带上所有环境变量)
-          echo "🔥 Starting container..."
-          docker run -d \
-            --name ai-backend \
-            --restart always \
-            -p 2580:2580 \
-            --link postgres-db:db \
-            -e FFMPEG_PATH='/usr/bin/ffmpeg' \
-            -e FFPROBE_PATH='/usr/bin/ffprobe' \
-            -e SPRING_DATASOURCE_URL='${{ secrets.DB_URL }}' \
-            -e SPRING_DATASOURCE_USERNAME='${{ secrets.DB_USERNAME }}' \
-            -e SPRING_DATASOURCE_PASSWORD='${{ secrets.DB_PASSWORD }}' \
-            -e DEEPSEEK_API_KEY='${{ secrets.DEEPSEEK_API_KEY }}' \
-            -e BAIDU_API_KEY='${{ secrets.BAIDU_API_KEY }}' \
-            -e BAIDU_SECRET_KEY='${{ secrets.BAIDU_SECRET_KEY }}' \
-            $IMAGE_TAG
+            # 4. 启动新容器
+            echo "🔥 Starting new container..."
+            docker run -d \
+              --name $CONTAINER \
+              --restart always \
+              -p 2580:2580 \
+              --link postgres-db:db \
+              -e FFMPEG_PATH='/usr/bin/ffmpeg' \
+              -e FFPROBE_PATH='/usr/bin/ffprobe' \
+              -e SPRING_DATASOURCE_URL='${{ secrets.DB_URL }}' \
+              -e SPRING_DATASOURCE_USERNAME='${{ secrets.DB_USERNAME }}' \
+              -e SPRING_DATASOURCE_PASSWORD='${{ secrets.DB_PASSWORD }}' \
+              -e SPRING_JPA_HIBERNATE_DDL_AUTO='update' \
+              -e JWT_SECRET='${{ secrets.JWT_SECRET }}' \
+              -e DEEPSEEK_API_KEY='${{ secrets.DEEPSEEK_API_KEY }}' \
+              -e BAIDU_API_KEY='${{ secrets.BAIDU_API_KEY }}' \
+              -e BAIDU_SECRET_KEY='${{ secrets.BAIDU_SECRET_KEY }}' \
+              $IMAGE_TAG
 
-          echo "✅ Deployment Success! Pruning old images..."
-          docker image prune -f
+            # 5. 等待服务启动（最长 60 秒）
+            echo "⏳ Waiting for service to be healthy..."
+            for i in $(seq 1 12); do
+              sleep 5
+              STATUS=$(curl -sf "http://127.0.0.1:2580/actuator/health" 2>/dev/null | grep -o '"status":"UP"' || echo "")
+              if [ -n "$STATUS" ]; then
+                echo "✅ Service is UP after $((i*5))s"
+                break
+              fi
+              echo "   Attempt $i/12: not ready yet..."
+              if [ $i -eq 12 ]; then
+                echo "❌ Health check failed!"
+                docker logs $CONTAINER --tail=50
+                exit 1
+              fi
+            done
+
+            # 6. 清理旧镜像
+            docker image prune -f
+            echo "🎉 ===== Deployment Complete ====="
