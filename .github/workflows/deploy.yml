@@ -70,75 +70,90 @@ jobs:
           docker push ${{ env.IMAGE_TAG_SHA }}
           echo "✅ Image pushed: ${{ env.IMAGE_TAG }}"
 
-      # 6. SSH 部署到服务器
+      # 6. 将部署配置文件上传到服务器
+      - name: Upload deploy configs
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SERVER_PRIVATE_KEY }}
+          source: "docker-compose.prod.yml,nginx/nginx.conf,ssl-init.sh,fix-iptables-docker.sh"
+          target: "/opt/ai-backend"
+          strip_components: 0
+
+      # 7. SSH 部署到服务器（使用 docker-compose.prod.yml）
       - name: SSH Remote Deploy
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.SERVER_PRIVATE_KEY }}
+          envs: DOCKER_REGISTRY,IMAGE_NAME,DB_URL,DB_USERNAME,DB_PASSWORD,JWT_SECRET,DEEPSEEK_API_KEY,BAIDU_API_KEY,BAIDU_SECRET_KEY,DOCKER_USERNAME,DOCKER_PASSWORD
           script: |
             set -e
-            IMAGE_TAG="${{ secrets.DOCKER_REGISTRY }}/${{ secrets.IMAGE_NAME }}:latest"
-            CONTAINER="ai-backend"
+            DEPLOY_DIR="/opt/ai-backend"
+            cd "$DEPLOY_DIR"
 
             echo "🚀 ===== Starting Deployment ====="
-            echo "   Image: $IMAGE_TAG"
 
-            # 1. 修复 iptables 规则（确保 Docker 网络正常）
+            # 1. 修复 iptables DROP 规则（防止 Docker 网络被阻断）
             if iptables -L DOCKER-USER -n 2>/dev/null | grep -q "^DROP"; then
               echo "⚠️  Removing stale DROP rule from DOCKER-USER chain..."
               iptables -D DOCKER-USER -j DROP 2>/dev/null || true
             fi
 
-            # 2. 登录 ACR 并拉取最新镜像
+            # 2. 初始化 SSL 证书（首次部署执行，证书已存在则跳过）
+            if [ ! -f /etc/ssl/certs/server.crt ]; then
+              echo "🔐 SSL certificate not found, generating self-signed cert..."
+              bash ssl-init.sh self-signed
+            else
+              echo "🔐 SSL certificate already exists, skipping..."
+            fi
+
+            # 3. 登录 ACR 并拉取最新镜像
             echo "📥 Pulling latest image..."
             docker login \
               --username=${{ secrets.DOCKER_USERNAME }} \
               --password=${{ secrets.DOCKER_PASSWORD }} \
               ${{ secrets.DOCKER_REGISTRY }}
-            docker pull $IMAGE_TAG
+            docker pull ${{ secrets.DOCKER_REGISTRY }}/${{ secrets.IMAGE_NAME }}:latest
 
-            # 3. 停止并删除旧容器
-            echo "🛑 Stopping old container..."
-            docker rm -f $CONTAINER 2>/dev/null || true
+            # 4. 写入生产环境变量文件
+            cat > .env << 'ENVEOF'
+            DOCKER_REGISTRY=${{ secrets.DOCKER_REGISTRY }}
+            IMAGE_NAME=${{ secrets.IMAGE_NAME }}
+            DB_URL=${{ secrets.DB_URL }}
+            DB_USERNAME=${{ secrets.DB_USERNAME }}
+            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+            JWT_SECRET=${{ secrets.JWT_SECRET }}
+            DEEPSEEK_API_KEY=${{ secrets.DEEPSEEK_API_KEY }}
+            BAIDU_API_KEY=${{ secrets.BAIDU_API_KEY }}
+            BAIDU_SECRET_KEY=${{ secrets.BAIDU_SECRET_KEY }}
+            ENVEOF
+            chmod 600 .env
 
-            # 4. 启动新容器
-            echo "🔥 Starting new container..."
-            docker run -d \
-              --name $CONTAINER \
-              --restart always \
-              -p 2580:2580 \
-              --link postgres-db:db \
-              -e FFMPEG_PATH='/usr/bin/ffmpeg' \
-              -e FFPROBE_PATH='/usr/bin/ffprobe' \
-              -e SPRING_DATASOURCE_URL='${{ secrets.DB_URL }}' \
-              -e SPRING_DATASOURCE_USERNAME='${{ secrets.DB_USERNAME }}' \
-              -e SPRING_DATASOURCE_PASSWORD='${{ secrets.DB_PASSWORD }}' \
-              -e SPRING_JPA_HIBERNATE_DDL_AUTO='update' \
-              -e JWT_SECRET='${{ secrets.JWT_SECRET }}' \
-              -e DEEPSEEK_API_KEY='${{ secrets.DEEPSEEK_API_KEY }}' \
-              -e BAIDU_API_KEY='${{ secrets.BAIDU_API_KEY }}' \
-              -e BAIDU_SECRET_KEY='${{ secrets.BAIDU_SECRET_KEY }}' \
-              $IMAGE_TAG
+            # 5. 滚动更新（docker-compose.prod.yml）
+            echo "🔄 Rolling update with docker-compose..."
+            docker-compose -f docker-compose.prod.yml --env-file .env pull a_say_backend
+            docker-compose -f docker-compose.prod.yml --env-file .env up -d --no-deps a_say_backend nginx
 
-            # 5. 等待服务启动（最长 60 秒）
-            echo "⏳ Waiting for service to be healthy..."
-            for i in $(seq 1 12); do
+            # 6. 等待服务启动（最长 90 秒，通过 nginx HTTPS 验证）
+            echo "⏳ Waiting for HTTPS service to be healthy..."
+            for i in $(seq 1 18); do
               sleep 5
-              STATUS=$(curl -sf "http://127.0.0.1:2580/actuator/health" 2>/dev/null | grep -o '"status":"UP"' || echo "")
+              STATUS=$(curl -sfk "https://127.0.0.1/actuator/health" 2>/dev/null | grep -o '"status":"UP"' || echo "")
               if [ -n "$STATUS" ]; then
-                echo "✅ Service is UP after $((i*5))s"
+                echo "✅ HTTPS Service is UP after $((i*5))s"
                 break
               fi
-              echo "   Attempt $i/12: not ready yet..."
-              if [ $i -eq 12 ]; then
-                echo "❌ Health check failed!"
-                docker logs $CONTAINER --tail=50
+              echo "   Attempt $i/18: not ready yet..."
+              if [ $i -eq 18 ]; then
+                echo "❌ Health check failed! Container logs:"
+                docker-compose -f docker-compose.prod.yml logs a_say_backend --tail=50
                 exit 1
               fi
             done
 
-            # 6. 清理旧镜像
+            # 7. 清理旧镜像
             docker image prune -f
-            echo "🎉 ===== Deployment Complete ====="
+            echo "🎉 ===== Deployment Complete! HTTPS is live ====="
