@@ -197,47 +197,6 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * 处理AWS SDK存储服务异常
-     *
-     * 【适用场景】
-     * 处理与AWS S3等存储服务交互时可能出现的各种异常：
-     * - 网络连接问题
-     * - 认证失败
-     * - 权限不足
-     * - 服务不可用
-     * - 配置错误
-     *
-     * 【处理策略】
-     * - 错误分类：使用ErrorCode.STORAGE_ERROR专门标识存储相关错误
-     * - 用户友好消息：返回"文件存储服务暂时不可用"而非技术细节
-     * - 详细日志：记录完整的异常堆栈，便于运维人员排查
-     * - 服务降级：提示用户稍后重试，避免重试导致雪崩
-     *
-     * 【故障恢复建议】
-     * 1. 检查AWS服务状态和配置
-     * 2. 验证访问密钥和权限设置
-     * 3. 检查网络连接和防火墙设置
-     * 4. 考虑实现本地缓存机制作为降级方案
-     *
-     * 【监控指标】
-     * 建议监控以下指标：
-     * - 存储服务异常发生频率
-     * - 异常持续时间
-     * - 影响的请求量
-     * - 服务恢复时间
-     *
-     * @param e AWS SDK异常对象
-     * @paramreq HttpServletRequest对象
-     * @return 存储服务错误响应实体
-     */
-    @ExceptionHandler(software.amazon.awssdk.core.exception.SdkException.class)
-    public ResponseEntity<ApiErrorResponse> handleStorageError(Exception e, HttpServletRequest req) {
-        log.error("Storage Service Error: ", e);
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ApiErrorResponse.of(ErrorCode.STORAGE_ERROR, "文件存储服务暂时不可用", getRequestId(), req.getRequestURI()));
-    }
-
-    /**
      * 处理音频转码服务异常
      *
      * 【业务背景】
