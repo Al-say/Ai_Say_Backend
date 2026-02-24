@@ -2,8 +2,7 @@
 .git
 .gitignore
 
-# Maven files
-target/
+# Maven files (except the final JAR)
 pom.xml.tag
 pom.xml.releaseBackup
 pom.xml.versionsBackup
