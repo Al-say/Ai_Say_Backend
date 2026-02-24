@@ -161,7 +161,19 @@ GitHub Actions 会在每次推送和 PR 时自动运行：
 
 ## 快速开始
 
-### 🚀 一键启动（推荐）
+### 🚀 一键启动（推荐使用Docker）
+
+```bash
+# Docker一键启动（包含所有依赖服务，推荐）
+./docker-run.sh
+
+# 或手动启动
+docker-compose up -d
+```
+
+> 🎯 **推荐方式**：使用Docker可以自动配置PostgreSQL、MinIO等所有依赖服务，无需手动安装！
+
+#### 本地开发运行
 
 ```bash
 # 1. 运行前环境检查（避免常见问题）
@@ -171,10 +183,10 @@ GitHub Actions 会在每次推送和 PR 时自动运行：
 mvn spring-boot:run
 
 # 3. 验证启动
-curl http://localhost:2580/api/v1/evaluate/health
+curl http://localhost:2580/actuator/health
 ```
 
-> 💡 **重要提醒**：每次启动前都运行 `./check-before-run.sh` 可以避免端口占用、Java版本等常见问题！
+> 💡 **重要提醒**：本地运行前请先运行 `./check-before-run.sh` 检查环境！
 
 ### 环境要求
 
@@ -204,20 +216,41 @@ export BAIDU_SECRET_KEY=your_baidu_secret_key
 ### 启动依赖服务
 
 ```bash
-# 启动 MinIO (对象存储)
+# 启动完整环境（PostgreSQL + MinIO + 应用）
 docker-compose up -d
+
+# 查看服务状态
+docker-compose ps
+
+# 查看日志
+docker-compose logs -f
 ```
 
 ### 运行应用
 
-#### 方式一：本地开发运行
+#### 方式一：Docker完整环境（推荐）
+
+```bash
+# 一键启动所有服务
+./docker-run.sh
+
+# 或手动启动
+docker-compose up -d
+```
+
+**服务访问地址：**
+- 后端API: http://localhost:2580
+- MinIO控制台: http://localhost:9001 (用户名/密码: minioadmin/minioadmin)
+- PostgreSQL: localhost:5433 (用户名/密码: postgres/your_password)
+
+#### 方式二：本地开发运行
 
 ```bash
 mvn clean install
 mvn spring-boot:run
 ```
 
-#### 方式二：Docker 容器运行
+#### 方式三：单容器运行
 
 ```bash
 # 构建镜像
