@@ -34,7 +34,20 @@ jwt:
 
 # FFmpeg 配置
 ffmpeg:
-  path: /usr/local/bin/ffmpeg  # 测试环境使用默认路径
+  path: /usr/local/bin/ffmpeg
+
+# FFprobe 配置
+ffprobe:
+  path: /usr/local/bin/ffprobe
+
+# Audio 配置
+audio:
+  denoise:
+    enabled: false
+  temp-dir: /tmp
+  target:
+    sample-rate: 16000
+    channels: 1
 
 # DeepSeek AI API 配置 - 使用环境变量保护密钥
 deepseek:
@@ -42,3 +55,33 @@ deepseek:
     key: ${DEEPSEEK_API_KEY:dummy-key}  # 环境变量优先,本地开发可用 dummy
     url: ${DEEPSEEK_API_URL:https://api.deepseek.com/v1/chat/completions}
     model: ${DEEPSEEK_MODEL:deepseek-chat}
+
+# 百度 ASR 配置
+baidu:
+  app-id: ${BAIDU_APP_ID:dummy-id}
+  api-key: ${BAIDU_API_KEY:dummy-key}
+  secret-key: ${BAIDU_SECRET_KEY:dummy-secret}
+
+# Apple 登录配置
+apple:
+  signin:
+    client-id: ${APPLE_CLIENT_ID:your.bundle.id}
+    token-secret: ${APPLE_TOKEN_SECRET:dummy-secret}
+    jwt:
+      issuer: ${APPLE_JWT_ISSUER:com.zhupinzan.speaking}
+      audience: ${APPLE_JWT_AUDIENCE:your.bundle.id}
+
+# Scene Prompts
+scene:
+  prompts:
+    exam-prep: "Describe a historical building you visited.;Do you think AI will replace teachers?"
+    career-growth: "Tell me about a time you handled a conflict.;How would you ask your boss for a deadline extension?"
+
+# S3/MinIO 存储配置
+storage:
+  s3:
+    endpoint: ${S3_ENDPOINT:http://localhost:9000}
+    access-key: ${S3_ACCESS_KEY:minioadmin}
+    secret-key: ${S3_SECRET_KEY:minioadmin}
+    bucket: ${S3_BUCKET:speaking-audio}
+    region: ${S3_REGION:us-east-1}
