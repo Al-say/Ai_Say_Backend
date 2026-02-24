@@ -4,15 +4,16 @@ FROM amazoncorretto:21
 ENV TZ=Asia/Shanghai
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
-# 安装 FFmpeg（静态二进制，适用 Amazon Linux / x86_64）
-RUN dnf install -y xz tar curl && \
+# 安装 FFmpeg（静态二进制，适用 Amazon Corretto / x86_64）
+# amazoncorretto:21 使用 microdnf（精简版 Amazon Linux）
+RUN microdnf install -y xz tar curl && \
     curl -L "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz" \
       | tar xJ -C /tmp && \
     mv /tmp/ffmpeg-*-static/ffmpeg  /usr/bin/ffmpeg  && \
     mv /tmp/ffmpeg-*-static/ffprobe /usr/bin/ffprobe && \
     chmod +x /usr/bin/ffmpeg /usr/bin/ffprobe && \
     rm -rf /tmp/ffmpeg* && \
-    dnf clean all && \
+    microdnf clean all && \
     ffmpeg -version 2>&1 | head -1
 
 # 创建上传目录
