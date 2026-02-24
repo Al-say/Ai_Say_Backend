@@ -1,0 +1,44 @@
+server:
+  port: 2580
+
+spring:
+  application:
+    name: speaking-assessment
+
+  # H2 Database Configuration for testing
+  datasource:
+    url: jdbc:h2:mem:testdb;MODE=PostgreSQL;DB_CLOSE_DELAY=-1
+    driverClassName: org.h2.Driver
+    username: sa
+    password: password
+
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.H2Dialect
+    database-platform: org.hibernate.dialect.H2Dialect
+
+# JWT 配置
+jwt:
+  secret: test-jwt-secret-key-for-testing-purposes-only
+  expiration: 86400000  # 24 hours in milliseconds
+
+# FFmpeg 配置
+ffmpeg:
+  path: /usr/local/bin/ffmpeg  # 测试环境使用默认路径
+
+# DeepSeek AI API 配置 - 使用环境变量保护密钥
+deepseek:
+  api:
+    key: ${DEEPSEEK_API_KEY:dummy-key}  # 环境变量优先,本地开发可用 dummy
+    url: ${DEEPSEEK_API_URL:https://api.deepseek.com/v1/chat/completions}
+    model: ${DEEPSEEK_MODEL:deepseek-chat}

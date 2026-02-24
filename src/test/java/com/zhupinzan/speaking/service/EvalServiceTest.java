@@ -1,24 +1,52 @@
 package com.zhupinzan.speaking.service;
 
 import com.zhupinzan.speaking.model.UserPersona;
+import com.zhupinzan.speaking.model.dto.DeepSeekEvalResult;
 import com.zhupinzan.speaking.model.dto.EvalDTO;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 
 import java.util.List;
+import java.util.Map;
 
 // @SpringBootTest 会加载完整的 Spring 上下文，包括数据库连接和 Bean 注入
-@SpringBootTest
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 public class EvalServiceTest {
 
     @Autowired
     private EvalService evalService;
 
+    @MockBean
+    private DeepSeekEvalService deepSeekEvalService;
+
     @Test
     @DisplayName("集成测试：调用 DeepSeek 并存库")
     void testEvaluateWorkflow() {
+        System.out.println("🚀 开始执行后端自测...");
+
+        // Mock DeepSeekEvalService
+        DeepSeekEvalResult.Feedback feedback = new DeepSeekEvalResult.Feedback(
+            "Good job!", List.of("Fluency"), List.of(), List.of("Keep practicing"), "Improved text"
+        );
+        DeepSeekEvalResult mockResult = new DeepSeekEvalResult(
+            "success", 85, Map.of("fluency", 85, "completeness", 90, "relevance", 88), feedback
+        );
+        Mockito.when(deepSeekEvalService.evaluate(Mockito.any(), Mockito.anyString(), Mockito.anyString()))
+               .thenReturn(mockResult);
+
+        EvalDTO.TextEvalResp mockResp = new EvalDTO.TextEvalResp();
+        mockResp.setFluency(85.0);
+        mockResp.setCompleteness(90.0);
+        mockResp.setRelevance(88.0);
+        mockResp.setIssues(List.of());
+        mockResp.setSuggestions(List.of("Good job!"));
+        mockResp.setRecordId(1L);
+        Mockito.when(deepSeekEvalService.mapToTextEvalResp(Mockito.any(), Mockito.anyString()))
+               .thenReturn(mockResp);
         System.out.println("🚀 开始执行后端自测...");
 
         // 1. 模拟前端传来的请求数据

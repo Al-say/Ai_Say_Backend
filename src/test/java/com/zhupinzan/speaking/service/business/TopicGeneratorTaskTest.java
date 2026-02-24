@@ -5,8 +5,10 @@ import com.zhupinzan.speaking.model.entity.DailyTopic;
 import com.zhupinzan.speaking.repository.DailyTopicRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,9 +25,15 @@ class TopicGeneratorTaskTest {
     @Autowired
     private DailyTopicRepository topicRepository;
 
+    @MockBean
+    private DeepSeekService deepSeekService;
+
     @BeforeEach
     void setup() {
         topicRepository.deleteAll();
+        // Mock DeepSeekService
+        Mockito.when(deepSeekService.generateTopic(Mockito.any(), Mockito.any()))
+               .thenReturn("Mocked topic content");
     }
 
     @Test
