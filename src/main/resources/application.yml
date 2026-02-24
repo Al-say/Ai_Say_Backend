@@ -59,15 +59,6 @@ baidu:
   api-key: ${BAIDU_API_KEY:dummy-key}
   secret-key: ${BAIDU_SECRET_KEY:dummy-secret}
 
-# Apple 登录配置 - 使用环境变量保护密钥
-apple:
-  signin:
-    client-id: ${APPLE_CLIENT_ID:your.bundle.id}
-    token-secret: ${APPLE_TOKEN_SECRET:dummy-secret}
-    jwt:
-      issuer: ${APPLE_JWT_ISSUER:com.zhupinzan.speaking}
-      audience: ${APPLE_JWT_AUDIENCE:your.bundle.id}
-
 # Audio Denoise
 audio:
   denoise:

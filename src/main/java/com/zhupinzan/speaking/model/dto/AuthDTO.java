@@ -6,103 +6,10 @@ package com.zhupinzan.speaking.model.dto;
  * <p>本类包含所有与用户认证相关的数据传输对象，用于处理用户登录、设备绑定和认证响应。
  * 采用 Java Record 结构确保数据不可变性和简洁性。</p>
  *
- * <p><b>设计理念：</b></p>
- * <ul>
- *   <li>数据不可变 - 使用 Java Record 确保所有对象不可变</li>
- *   <li>类型安全 - 明确的字段类型和约束</li>
- *   <li>分层设计 - 请求对象、响应对象、数据对象分离</li>
- *   <li>前端友好 - 字段名称与 JSON 契约一致</li>
- * </ul>
- *
- * <p><b>数据流程：</b></p>
- * <ul>
- *   <li>Apple 登录请求 → 验证并生成认证响应</li>
- *   <li>设备绑定请求 → 绑定设备并返回用户信息</li>
- *   <li>认证响应 → 包含令牌和用户详细信息</li>
- * </ul>
- *
- * <p><b>序列化考虑：</b></p>
- * <ul>
- *   <li>所有字段使用默认 Jackson 序列化策略</li>
- *   <li>日期时间使用 ISO-8601 格式</li>
- *   <li>枚举使用字符串值进行序列化</li>
- * </ul>
- *
- * <p><b>验证规则：</b></p>
- * <ul>
- *   <li>idToken: 必填，有效的 Apple ID Token</li>
- *   <li>deviceId: 必填，UUID 格式</li>
- *   <li>displayName: 可选，长度限制</li>
- *   <li>email: 必须符合邮箱格式</li>
- * </ul>
- *
  * @author system
  * @since 1.0.0
  */
 public class AuthDTO {
-
-    /**
-     * Apple 登录请求对象
-     *
-     * <p><b>作用：</b>封装用户通过 Apple 登录时提交的数据</p>
-     * <p><b>数据契约：</b>用于接收前端发送的 Apple 登录请求</p>
-     * <p><b>使用场景：</b>
-     * <ul>
-     *   <li>用户点击 "使用 Apple 登录" 按钮时</li>
-     *   <li>Apple 授权回调时发送到后端</li>
-     *   <li>设备首次登录时提供设备信息</li>
-     * </ul>
-     * </p>
-     *
-     * <p><b>字段说明：</b></p>
-     * <ul>
-     *   <li><b>idToken</b> (String, 必填)
-     *     <ul>
-     *       <li>作用：Apple 身份验证令牌</li>
-     *       <li>格式：JWT 格式的字符串</li>
-     *       <li>约束：非空、长度不超过 2048 字符</li>
-     *       <li>验证：需验证 JWT 签名和过期时间</li>
-     *     </ul>
-     *   </li>
-     *   <li><b>deviceId</b> (String, 必填)
-     *     <ul>
-     *       <li>作用：唯一标识用户设备</li>
-     *       <li>格式：UUID 或设备唯一标识符</li>
-     *       <li>约束：非空、长度不超过 255 字符</li>
-     *       <li>用途：用于设备管理和会话跟踪</li>
-     *     </ul>
-     *   </li>
-     *   <li><b>displayName</b> (String, 可选)
-     *     <ul>
-     *       <li>作用：用户显示名称</li>
-     *       <li>来源：Apple 账户的用户名或昵称</li>
-     *       <li>约束：长度不超过 100 字符</li>
-     *       <li>处理：为空时使用默认值或生成唯一标识</li>
-     *     </ul>
-     *   </li>
-     * </ul>
-     *
-     * <p><b>错误处理：</b></p>
-     * <ul>
-     *   <li>idToken 无效：返回 401 Unauthorized</li>
-     *   <li>deviceId 格式错误：返回 400 Bad Request</li>
-     *   <li>网络异常：返回 503 Service Unavailable</li>
-     * </ul>
-     *
-     * <p><b>示例：</b></p>
-     * <pre>
-     * {
-     *   "idToken": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
-     *   "deviceId": "550e8400-e29b-41d4-a716-446655440000",
-     *   "displayName": "张三"
-     * }
-     * </pre>
-     */
-    public record AppleLoginReq(
-        String idToken,
-        String deviceId,
-        String displayName
-    ) {}
 
     /**
      * 设备绑定请求对象
