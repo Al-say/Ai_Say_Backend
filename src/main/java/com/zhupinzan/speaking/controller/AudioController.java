@@ -37,36 +37,52 @@ public class AudioController {
     public ResponseEntity<?> upload(@CurrentUser CurrentUserInfo user, @RequestPart("file") MultipartFile file) {
         var deviceId = authUserService.requireDeviceId(user);
         try {
-            if (file == null || file.isEmpty()) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Empty file");
-            }
-
-            String ext = guessExt(file.getOriginalFilename());
-            byte[] raw = file.getBytes();
-
-            // 1) 转码为 wav16k mono pcm
-            log.info("Starting transcode for device: {}", deviceId);
-            var wav = transcodeService.transcodeToWav16kMono(raw, ext);
-
-            // 2) 计算时长（用于 Profile/统计）
-            long durationMs = metaService.durationMs(wav.bytes(), wav.extension());
-
-            // 3) 上传转码产物
-            String url = storage.uploadAudio(wav.bytes(), deviceId, wav.extension());
-
-            return ResponseEntity.ok(Map.of(
-                    "url", url,
-                    "durationMs", durationMs,
-                    "format", "pcm_wav_16k"
-            ));
+            return ResponseEntity.ok(doProcessAndUpload(deviceId, file));
         } catch (ResponseStatusException e) {
             throw e;
         } catch (AudioTranscodeService.AudioTranscodeException e) {
-            // 交给统一异常处理映射为 AUDIO_TRANSCODE_ERROR（见下方补丁）
+            // 交给统一异常处理映射为 AUDIO_TRANSCODE_ERROR
             throw e;
         } catch (Exception e) {
             throw new RuntimeException("Upload failed", e);
         }
+    }
+
+    // 内部方法，用于 EvalOrchestrator 调用
+    public Map<String, Object> uploadInternal(String deviceId, MultipartFile file) {
+        try {
+            return doProcessAndUpload(deviceId, file);
+        } catch (Exception e) {
+            throw new RuntimeException("Upload failed", e);
+        }
+    }
+
+    /**
+     * 公共上传处理逻辑：校验 → 转码 → 计算时长 → 存储。
+     */
+    private Map<String, Object> doProcessAndUpload(String deviceId, MultipartFile file) throws Exception {
+        if (file == null || file.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Empty file");
+        }
+
+        String ext = guessExt(file.getOriginalFilename());
+        byte[] raw = file.getBytes();
+
+        // 1) 转码为 wav16k mono pcm
+        log.info("Starting transcode for device: {}", deviceId);
+        var wav = transcodeService.transcodeToWav16kMono(raw, ext);
+
+        // 2) 计算时长（用于 Profile/统计）
+        long durationMs = metaService.durationMs(wav.bytes(), wav.extension());
+
+        // 3) 上传转码产物
+        String url = storage.uploadAudio(wav.bytes(), deviceId, wav.extension());
+
+        return Map.of(
+                "url", url,
+                "durationMs", durationMs,
+                "format", "pcm_wav_16k"
+        );
     }
 
     private String guessExt(String filename) {
@@ -74,35 +90,5 @@ public class AudioController {
         int idx = filename.lastIndexOf('.');
         if (idx < 0) return ".bin";
         return filename.substring(idx);
-    }
-
-    // 内部方法，用于 EvalOrchestrator 调用
-    public Map<String, Object> uploadInternal(String deviceId, MultipartFile file) {
-        try {
-            if (file == null || file.isEmpty()) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Empty file");
-            }
-
-            String ext = guessExt(file.getOriginalFilename());
-            byte[] raw = file.getBytes();
-
-            // 1) 转码为 wav16k mono pcm
-            log.info("Starting transcode for device: {}", deviceId);
-            var wav = transcodeService.transcodeToWav16kMono(raw, ext);
-
-            // 2) 计算时长（用于 Profile/统计）
-            long durationMs = metaService.durationMs(wav.bytes(), wav.extension());
-
-            // 3) 上传转码产物
-            String url = storage.uploadAudio(wav.bytes(), deviceId, wav.extension());
-
-            return Map.of(
-                    "url", url,
-                    "durationMs", durationMs,
-                    "format", "pcm_wav_16k"
-            );
-        } catch (Exception e) {
-            throw new RuntimeException("Upload failed", e);
-        }
     }
 }

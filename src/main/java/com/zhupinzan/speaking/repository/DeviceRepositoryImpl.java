@@ -5,7 +5,6 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.NoResultException;
 import jakarta.persistence.PersistenceContext;
 import java.time.OffsetDateTime;
-import org.hibernate.Session;
 import org.springframework.transaction.annotation.Transactional;
 
 public class DeviceRepositoryImpl implements DeviceRepositoryCustom {
@@ -53,19 +52,6 @@ public class DeviceRepositoryImpl implements DeviceRepositoryCustom {
     }
 
     private boolean isPostgres() {
-        Object dialect = entityManager.getEntityManagerFactory()
-                .getProperties()
-                .get("hibernate.dialect");
-        if (dialect != null && dialect.toString().toLowerCase().contains("postgres")) {
-            return true;
-        }
-        try {
-            return entityManager.unwrap(Session.class)
-                    .doReturningWork(conn -> conn.getMetaData().getDatabaseProductName())
-                    .toLowerCase()
-                    .contains("postgres");
-        } catch (Exception e) {
-            return false;
-        }
+        return JpaUtils.isPostgres(entityManager);
     }
 }
