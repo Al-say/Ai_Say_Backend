@@ -29,7 +29,9 @@ services:
 
   a_say_backend:
     image: a_say_backend:latest
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile.simple
     depends_on:
       postgres:
         condition: service_healthy

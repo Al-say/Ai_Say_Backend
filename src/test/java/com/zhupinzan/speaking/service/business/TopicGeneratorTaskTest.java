@@ -3,6 +3,7 @@ package com.zhupinzan.speaking.service.business;
 import com.zhupinzan.speaking.model.UserPersona;
 import com.zhupinzan.speaking.model.entity.DailyTopic;
 import com.zhupinzan.speaking.repository.DailyTopicRepository;
+import com.zhupinzan.speaking.service.DeepSeekService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;

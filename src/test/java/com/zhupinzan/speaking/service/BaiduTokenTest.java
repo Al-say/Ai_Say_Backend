@@ -18,31 +18,3 @@ public class BaiduTokenTest {
         }
     }
 }
-
-            MediaType mediaType = MediaType.parse("application/x-www-form-urlencoded");
-            RequestBody body = RequestBody.create(mediaType,
-                "grant_type=client_credentials&client_id=" + apiKey + "&client_secret=" + secretKey);
-
-            Request request = new Request.Builder()
-                    .url("https://aip.baidubce.com/oauth/2.0/token")
-                    .method("POST", body)
-                    .addHeader("Content-Type", "application/x-www-form-urlencoded")
-                    .build();
-
-            try (Response response = httpClient.newCall(request).execute()) {
-                String responseBody = response.body().string();
-                System.out.println("Response Code: " + response.code());
-                System.out.println("Response Body: " + responseBody);
-
-                if (response.isSuccessful()) {
-                    System.out.println("✅ Access Token 获取成功！");
-                } else {
-                    System.out.println("❌ Access Token 获取失败！");
-                }
-            }
-        } catch (Exception e) {
-            System.err.println("测试失败: " + e.getMessage());
-            e.printStackTrace();
-        }
-    }
-}

@@ -17,12 +17,13 @@ RUN yum update -y && \
 # 4. 设置工作目录
 WORKDIR /app
 
-# 5. 复制源代码
+# 5. 复制 Maven 仓库和源代码
+COPY .local-m2-repo /root/.m2/repository
 COPY pom.xml .
 COPY src ./src
 
 # 6. 构建应用
-RUN mvn clean package -DskipTests
+RUN mvn clean package -DskipTests -Dmaven.repo.local=/root/.m2/repository
 
 # 7. 复制 Jar 包
 RUN cp target/*.jar app.jar
