@@ -27,7 +27,7 @@ services:
 
   # ── Spring Boot 应用（仅内网，不对外暴露端口）────────
   a_say_backend:
-    image: ${DOCKER_REGISTRY}/${IMAGE_NAME}:latest
+    image: ${IMAGE_TAG}
     expose:
       - "2580"
     environment:
