@@ -87,17 +87,17 @@ curl -X POST http://localhost:2580/api/v1/evaluate \
 curl -X GET http://localhost:2580/api/v1/evaluate/{taskId} \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" | jq
 
-# 如果状态还是 PROCESSING，再等 2-3 秒后查询
+# 如果状态还是 PENDING，再等 2-3 秒后查询
 curl -X GET http://localhost:2580/api/v1/evaluate/{taskId} \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" | jq
 ```
 
-**预期响应（处理中）** (HTTP 202):
+**预期响应（处理中）** (HTTP 200):
 ```json
 {
   "taskId": "550e8400-...",
-  "status": "PROCESSING",
-  "progress": 60,
+  "status": "PENDING",
+  "progress": 0,
   "estimatedSecondsRemaining": 6
 }
 ```
@@ -145,19 +145,9 @@ curl -X GET http://localhost:2580/api/v1/evaluate/{taskId} \
 
 ---
 
-### Step 4: 清理任务
-
-```bash
-curl -X DELETE http://localhost:2580/api/v1/evaluate/{taskId}
-```
-
-**预期响应** (HTTP 204): 无内容
-
----
-
 ## 🔐 可选：登录历史查询
 
-前提：先通过 `/api/auth/login` 或 `/api/auth/apple` 获取 `accessToken`。
+前提：先通过 `/api/auth/login` 获取 `accessToken`。
 
 ```bash
 curl -X GET http://localhost:2580/api/profile/login-history?limit=50 \
@@ -305,7 +295,7 @@ export DEEPSEEK_API_KEY=sk-xxx
 mvn spring-boot:run
 ```
 
-### 问题 2: 任务一直 PROCESSING
+### 问题 2: 任务一直 PENDING
 
 **可能原因**:
 1. DeepSeek API 限流

@@ -13,7 +13,10 @@
 - 错误码：见ErrorCode枚举
 
 ## 关键流程
-除 `/api/auth/**` 外，其它API都需要Bearer token认证。
+鉴权以代码为准（`SecurityConfig.java` + Handler 参数）：
+- Security 放行：`/api/auth/**`、`/api/home/daily`、`/actuator/health`、`/api/v1/evaluate/health`、`/h2-console/**`、`OPTIONS /**`
+- 其余路径默认 `authenticated`
+- 注意：`/api/auth/me`、`/api/auth/bind-device` 虽在 `/api/auth/**` 下，但因 `@CurrentUser` 要求，未认证时仍返回 `401`
 
 ## 关键接口或关键文件位置
 - 控制器：controller/ 目录
@@ -28,7 +31,6 @@
 ### 认证模块 (/api/auth)
 - POST /api/auth/register - 用户注册
 - POST /api/auth/login - 用户名密码登录
-- POST /api/auth/apple - Apple ID登录
 - GET /api/auth/me - 获取当前用户信息
 - POST /api/auth/bind-device - 绑定设备ID
 
@@ -58,5 +60,5 @@
 - POST /api/audio/upload - 音频上传
 
 ### 测试模块 (/test)
-- GET /test - 测试端点
+- GET /api/test - 测试端点
 [返回导航](../README.md)

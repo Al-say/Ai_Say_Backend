@@ -11,6 +11,21 @@
 
 ## 文档导航
 - 前端对接：`../docs/前端对接文档.md`
+- 接口契约（代码事实）：`../docs/接口契约文档.md`
+- 业务说明（原因/策略/排障）：`../docs/业务说明文档.md`
+
+## 代码优先规则（必须）
+
+接口/鉴权/字段/状态以代码为准，当前基线文件：
+- `src/main/java/com/zhupinzan/speaking/config/SecurityConfig.java`
+- `src/main/java/com/zhupinzan/speaking/controller/EvaluationController.java`
+- `src/main/java/com/zhupinzan/speaking/model/TaskStatus.java`
+
+文档只做补充（推荐）：
+- 背景说明
+- 排障路径
+- 流程解释
+- 联调建议
 
 ### 00_快速开始
 1. [项目概览](00_快速开始/01_项目概览.md)
@@ -58,3 +73,5 @@
 ## 维护规范
 - 文档变更需要更新：`06_工程规范/04_版本发布流程.md`
 - 关键字段或接口变更必须同步更新 API 文档与排障文档
+- 每次改接口（路径/方法/鉴权/请求/响应）必须同时更新 `../docs/接口契约文档.md`
+- PR checklist 必须勾选“接口改动已同步契约文档”
