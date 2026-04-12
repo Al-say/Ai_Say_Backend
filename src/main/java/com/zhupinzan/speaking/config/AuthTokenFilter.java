@@ -7,9 +7,6 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.core.Ordered;
-import org.springframework.core.annotation.Order;
-import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
@@ -22,8 +19,7 @@ import java.io.IOException;
  * 过滤器继承自OncePerRequestFilter，保证每个请求只被处理一次，避免重复认证。
  * </p>
  */
-@Component
-@Order(Ordered.LOWEST_PRECEDENCE - 10)
+@Deprecated
 public class AuthTokenFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;

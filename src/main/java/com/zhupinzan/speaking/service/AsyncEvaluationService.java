@@ -11,15 +11,25 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.http.HttpStatus;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class AsyncEvaluationService {
+
+    private static final String OWNER_PREFIX = "USER:";
 
     private final DeepSeekEvalService deepSeekService;
     private final EvaluationTaskRepository taskRepository; // 💉 注入仓库
@@ -65,13 +75,23 @@ public class AsyncEvaluationService {
     }
 
     // 提交任务
-    public AsyncEvaluationResponse submitEvaluation(com.zhupinzan.speaking.model.UserPersona persona, String scene, String transcript, String userEmail) {
+    public AsyncEvaluationResponse submitEvaluation(
+            com.zhupinzan.speaking.model.UserPersona persona,
+            String scene,
+            String transcript,
+            Long ownerUserId
+    ) {
+        if (ownerUserId == null || ownerUserId <= 0) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "无效的用户身份");
+        }
+
         String taskId = UUID.randomUUID().toString();
 
         // 1. 先在数据库占个位
         EvaluationTask task = new EvaluationTask();
         task.setId(taskId);
-        task.setUserIdentity(userEmail);
+        task.setOwnerUserId(ownerUserId);
+        task.setUserIdentity(toCanonicalOwnerKey(ownerUserId));
         task.setPersona(persona != null ? persona.name() : null);
         task.setScene(scene);
         task.setTranscript(transcript);
@@ -97,20 +117,66 @@ public class AsyncEvaluationService {
     /**
      * 获取任务状态并进行权限校验
      */
-    public AsyncEvaluationResponse getTaskStatus(String taskId, String userEmail) {
+    public AsyncEvaluationResponse getTaskStatus(String taskId, Long ownerUserId, Set<String> legacyOwnerKeys) {
         EvaluationTask task = taskRepository.findById(taskId).orElse(null);
         if (task == null) {
             return null;
         }
-        if (task.getUserIdentity() != null && userEmail != null && !task.getUserIdentity().equals(userEmail)) {
-            throw new SecurityException("Access denied: You are not the owner of this task");
+        if (!isOwner(task, ownerUserId, legacyOwnerKeys)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "无权访问该任务");
         }
         return mapToResponse(task);
     }
 
     // 获取用户历史
-    public List<EvaluationTask> getUserHistory(String userIdentity) {
-        return taskRepository.findByUserIdentityOrderByCreatedAtDesc(userIdentity);
+    public List<EvaluationTask> getUserHistory(Long ownerUserId, Set<String> legacyOwnerKeys) {
+        if (ownerUserId == null || ownerUserId <= 0) {
+            return List.of();
+        }
+
+        List<EvaluationTask> result = new ArrayList<>(taskRepository.findByOwnerUserIdOrderByCreatedAtDesc(ownerUserId));
+
+        Set<String> compatibilityKeys = new LinkedHashSet<>(legacyOwnerKeys == null ? Set.of() : legacyOwnerKeys);
+        compatibilityKeys.add(toCanonicalOwnerKey(ownerUserId));
+
+        if (!compatibilityKeys.isEmpty()) {
+            List<EvaluationTask> legacy = taskRepository.findByUserIdentityInOrderByCreatedAtDesc(
+                    new ArrayList<>(compatibilityKeys));
+            result.addAll(legacy);
+        }
+
+        // 去重 + 统一倒序
+        Map<String, EvaluationTask> dedup = new LinkedHashMap<>();
+        for (EvaluationTask task : result) {
+            dedup.putIfAbsent(task.getId(), task);
+        }
+
+        return dedup.values().stream()
+                .sorted(Comparator.comparing(EvaluationTask::getCreatedAt,
+                        Comparator.nullsLast(Comparator.reverseOrder())))
+                .toList();
+    }
+
+    private boolean isOwner(EvaluationTask task, Long ownerUserId, Set<String> legacyOwnerKeys) {
+        if (ownerUserId == null || ownerUserId <= 0 || task == null) {
+            return false;
+        }
+
+        if (task.getOwnerUserId() != null) {
+            return ownerUserId.equals(task.getOwnerUserId());
+        }
+
+        Set<String> allKeys = new LinkedHashSet<>();
+        allKeys.add(toCanonicalOwnerKey(ownerUserId));
+        if (legacyOwnerKeys != null) {
+            allKeys.addAll(legacyOwnerKeys);
+        }
+
+        return task.getUserIdentity() != null && allKeys.contains(task.getUserIdentity());
+    }
+
+    private String toCanonicalOwnerKey(Long ownerUserId) {
+        return OWNER_PREFIX + ownerUserId;
     }
 
     private AsyncEvaluationResponse mapToResponse(EvaluationTask task) {

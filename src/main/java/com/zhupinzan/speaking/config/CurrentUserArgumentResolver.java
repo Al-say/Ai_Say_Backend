@@ -192,13 +192,6 @@ public class CurrentUserArgumentResolver implements HandlerMethodArgumentResolve
         Long userId = AuthContext.getUserIdAsLong(request); // Changed to getUserIdAsLong
         String appleSub = AuthContext.getAppleSub(request);
 
-        // 🔥 关键补丁：如果是空的（开发模式），手动捏一个假人
-        if (userId == null) { // userId is now Long, check for null
-            System.out.println("⚠️ [Dev Mode] 使用虚拟用户进行请求");
-            userId = 1L; // Changed to Long
-            appleSub = "dev_user_apple_sub"; // 假Apple Sub
-        }
-
         // 创建CurrentUserInfo实例
         return new CurrentUserInfo(userId, appleSub);
     }

@@ -97,6 +97,7 @@ CREATE INDEX IF NOT EXISTS idx_daily_topics_date_persona ON daily_topics(for_dat
 CREATE TABLE IF NOT EXISTS evaluation_tasks (
     id VARCHAR(36) PRIMARY KEY,
     user_identity VARCHAR(255) NOT NULL,
+    owner_user_id BIGINT,
     persona VARCHAR(32) NOT NULL,
     scene VARCHAR(255) NOT NULL,
     transcript TEXT NOT NULL,
@@ -111,5 +112,6 @@ CREATE TABLE IF NOT EXISTS evaluation_tasks (
 
 -- 索引，用于快速查找某个用户的所有任务或某个任务的状态
 CREATE INDEX IF NOT EXISTS idx_evaluation_tasks_user_id ON evaluation_tasks(user_identity);
+CREATE INDEX IF NOT EXISTS idx_evaluation_tasks_owner_user_id ON evaluation_tasks(owner_user_id);
 CREATE INDEX IF NOT EXISTS idx_evaluation_tasks_status ON evaluation_tasks(status);
 CREATE INDEX IF NOT EXISTS idx_evaluation_tasks_created_at ON evaluation_tasks(created_at DESC);

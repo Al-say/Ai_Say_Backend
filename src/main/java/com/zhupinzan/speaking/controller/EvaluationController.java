@@ -9,13 +9,16 @@ import com.zhupinzan.speaking.util.CurrentUser;
 import com.zhupinzan.speaking.util.CurrentUserInfo;
 import jakarta.validation.Valid;
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequestMapping("/api/v1/evaluate")
@@ -27,23 +30,28 @@ public class EvaluationController {
     // 1. 提交评估（带限流 + 身份绑定）
     @PostMapping
     public ResponseEntity<AsyncEvaluationResponse> submitEvaluation(
-            @Valid @RequestBody EvaluationRequest request
+            @Valid @RequestBody EvaluationRequest request,
+            @CurrentUser CurrentUserInfo user
     ) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String userIdentity = authentication != null ? authentication.getName() : "anonymous";
+        Long ownerUserId = requireUserId(user);
 
         UserPersona persona = UserPersona.valueOf(request.getPersona().toUpperCase());
         AsyncEvaluationResponse response = evaluationService.submitEvaluation(
-                persona, request.getScene(), request.getTranscript(), userIdentity);
+                persona, request.getScene(), request.getTranscript(), ownerUserId);
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
     }
 
     // 2. 查询任务状态
     @GetMapping("/{taskId}")
-    public ResponseEntity<AsyncEvaluationResponse> getTaskStatus(@PathVariable String taskId) {
+    public ResponseEntity<AsyncEvaluationResponse> getTaskStatus(
+            @PathVariable String taskId,
+            @CurrentUser CurrentUserInfo user
+    ) {
+        Long ownerUserId = requireUserId(user);
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String userIdentity = authentication != null ? authentication.getName() : "anonymous";
-        AsyncEvaluationResponse response = evaluationService.getTaskStatus(taskId, userIdentity);
+        Set<String> legacyOwnerKeys = buildLegacyOwnerKeys(user, authentication);
+
+        AsyncEvaluationResponse response = evaluationService.getTaskStatus(taskId, ownerUserId, legacyOwnerKeys);
         if (response == null) {
             return ResponseEntity.notFound().build();
         }
@@ -53,8 +61,33 @@ public class EvaluationController {
     // 3. 📜 查询历史记录（新增）
     @GetMapping("/history")
     public ResponseEntity<List<EvaluationTask>> getHistory(@CurrentUser CurrentUserInfo user) {
-        String userIdentity = user.appleSub();
-        List<EvaluationTask> history = evaluationService.getUserHistory(userIdentity);
+        Long ownerUserId = requireUserId(user);
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        Set<String> legacyOwnerKeys = buildLegacyOwnerKeys(user, authentication);
+
+        List<EvaluationTask> history = evaluationService.getUserHistory(ownerUserId, legacyOwnerKeys);
         return ResponseEntity.ok(history != null ? history : Collections.emptyList());
+    }
+
+    private Long requireUserId(CurrentUserInfo user) {
+        if (user == null || user.userId() == null || user.userId() <= 0) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "请先登录");
+        }
+        return user.userId();
+    }
+
+    private Set<String> buildLegacyOwnerKeys(CurrentUserInfo user, Authentication authentication) {
+        Set<String> keys = new LinkedHashSet<>();
+
+        if (authentication != null && authentication.getName() != null
+                && !authentication.getName().isBlank()) {
+            keys.add(authentication.getName());
+        }
+
+        if (user != null && user.appleSub() != null && !user.appleSub().isBlank()) {
+            keys.add(user.appleSub());
+        }
+
+        return keys;
     }
 }

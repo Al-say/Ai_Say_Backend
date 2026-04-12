@@ -134,25 +134,6 @@ public class AuthUserService {
             return account.get();
         }
 
-        // 🔥 关键补丁：如果是开发模式虚拟用户，自动创建账户
-        // Note: appleSub is String, keep isBlank() for it.
-        if (userId.equals(1L) && user.appleSub() != null && !user.appleSub().isBlank() && "dev_user_apple_sub".equals(user.appleSub())) {
-            log.info("⚠️ [Dev Mode] 自动创建虚拟用户账户");
-            var devAccount = new UserAccount();
-            devAccount.setId(1L);
-            devAccount.setAppleSub("dev_user_apple_sub");
-            devAccount.setDeviceId("dev_device_123");
-            devAccount.setCreatedAt(java.time.OffsetDateTime.now());
-            devAccount.setUpdatedAt(java.time.OffsetDateTime.now());
-            // 保存虚拟用户到数据库
-            try {
-                return userAccountRepository.save(devAccount);
-            } catch (Exception e) {
-                log.warn("保存虚拟用户失败，使用内存对象: {}", e.getMessage());
-                return devAccount;
-            }
-        }
-
         // 用户不存在，抛出异常
         log.warn("用户ID不存在: {}", userId);
         throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "用户账号不存在");

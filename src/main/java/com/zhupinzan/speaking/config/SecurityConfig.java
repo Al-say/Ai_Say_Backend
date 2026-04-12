@@ -5,8 +5,9 @@ import com.zhupinzan.speaking.service.UserDetailsServiceImpl; // 导入自定义
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -19,7 +20,6 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-import org.springframework.context.annotation.Profile;
 
 import java.util.List;
 
@@ -88,17 +88,19 @@ public class SecurityConfig {
 
             // 配置授权规则
             .authorizeHttpRequests(authz -> authz
+                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 // 公开访问的端点（不需要认证）
                 .requestMatchers("/api/auth/**").permitAll()  // 认证接口 (包括注册和登录)
                 .requestMatchers("/api/home/daily").permitAll() // 每日挑战接口，允许匿名访问
-                .requestMatchers("/api/eval/**").permitAll()  // 评估接口，允许匿名访问
                 .requestMatchers("/h2-console/**").permitAll()  // H2 控制台
-                .requestMatchers("/actuator/**").permitAll()  // 健康检查
+                .requestMatchers("/actuator/health").permitAll()  // 健康检查
                 .requestMatchers("/api/v1/evaluate/health").permitAll()  // API 健康检查
 
-                // 临时：允许所有请求匿名访问用于调试
-                .anyRequest().permitAll()
+                // 默认要求认证，避免误开放
+                .anyRequest().authenticated()
             )
+            // 允许 H2 Console iframe（仅开发调试）
+            .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()))
             // 配置自定义的 AuthenticationProvider
             .authenticationProvider(authenticationProvider())
             // 在 UsernamePasswordAuthenticationFilter 之前插入 JWT 过滤器

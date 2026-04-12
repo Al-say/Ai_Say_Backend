@@ -24,6 +24,9 @@ public class EvaluationTask {
     @Column(name = "user_identity", nullable = false)
     private String userIdentity; // 绑定用户
 
+    @Column(name = "owner_user_id")
+    private Long ownerUserId; // 统一归属主键（内部用户ID）
+
     @Column(nullable = false)
     private String persona;
 
