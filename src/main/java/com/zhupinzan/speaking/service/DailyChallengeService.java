@@ -1,20 +1,14 @@
 package com.zhupinzan.speaking.service;
 
 import com.zhupinzan.speaking.service.DailyTopicPersistenceException;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zhupinzan.speaking.model.UserPersona;
 import com.zhupinzan.speaking.model.entity.DailyTopic;
 import com.zhupinzan.speaking.repository.DailyTopicRepository;
 import com.zhupinzan.speaking.service.business.TopicGeneratorTask;
-import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
-import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -113,7 +107,6 @@ public class DailyChallengeService {
 
     private final DailyTopicRepository repo;     // 每日挑战题目的数据仓库
     private final TopicGeneratorTask generator;  // AI题目生成器
-    private final ObjectMapper om = new ObjectMapper(); // 用于JSON序列化
 
     public DailyChallengeService(DailyTopicRepository repo, TopicGeneratorTask generator) {
         this.repo = repo;
@@ -158,12 +151,11 @@ public class DailyChallengeService {
      * @return 一个 {@link DailyTopic} 实体。在绝大多数情况下，这是一个已持久化的实体。如果持久化失败，会返回一个临时的（未持久化的）实体。
      * @throws DailyTopicPersistenceException 如果将生成的题目持久化到数据库失败。
      */
-    @Transactional
     public DailyTopic getOrCreate(LocalDate date, UserPersona persona) {
         String personaKey = persona.name();
 
         // 步骤 1: 优先从数据库缓存中获取。这是核心的性能优化点。
-        var existing = repo.findByTopicDateAndPersona(date, personaKey);
+        var existing = safeFindByDateAndPersona(date, personaKey);
         if (existing.isPresent()) {
             log.info("每日挑战缓存命中: date={}, persona={}", date, personaKey);
             return existing.get();
@@ -188,33 +180,41 @@ public class DailyChallengeService {
 
         // 步骤 4: 将新生成（或兜底）的题目持久化到数据库，以供后续请求使用。
         try {
-            // 使用仓库中的自定义upsert方法来插入或更新记录。
-            repo.upsertDailyTopic(
-                date, personaKey, generated.getTitle(),
-                generated.getPrompt(), generated.getImageUrl(),
-                om.writeValueAsString(generated.getPayload())
-            );
-            // 再次查询以获取持久化后的完整实体，确保返回的是带有ID和其他数据库生成字段的最新状态。
-            return repo.findByTopicDateAndPersona(date, personaKey).orElse(generated);
-        } catch (org.springframework.dao.DataIntegrityViolationException e) {
-            // 如果是重复键异常，说明记录已存在，尝试更新
-            log.info("记录已存在，正在更新: date={}, persona={}", date, personaKey);
-            try {
-                repo.updateDailyTopic(
-                    date, personaKey, generated.getTitle(),
-                    generated.getPrompt(), generated.getImageUrl(),
-                    om.writeValueAsString(generated.getPayload())
-                );
-                return repo.findByTopicDateAndPersona(date, personaKey).orElse(generated);
-            } catch (Exception updateException) {
-                log.warn("更新每日挑战题目失败，将返回一个临时的（未持久化的）题目对象。Error: {}", updateException.getMessage());
-                throw new DailyTopicPersistenceException("Failed to update daily topic for date: " + date + ", persona: " + personaKey, updateException);
-            }
+            // 通过实体保存，避免 native SQL + jsonb cast 导致 payload 双重编码。
+            DailyTopic target = existing.orElseGet(DailyTopic::new);
+            target.setTopicDate(date);
+            target.setPersona(personaKey);
+            target.setTargetPersona(persona);
+            target.setTitle(generated.getTitle());
+            target.setDescription(generated.getDescription());
+            target.setPrompt(generated.getPrompt());
+            target.setImageUrl(generated.getImageUrl());
+            target.setAiSuggestions(generated.getAiSuggestions());
+            target.setPayload(generated.getPayload() == null ? Map.of() : generated.getPayload());
+            return repo.save(target);
         } catch (Exception e) {
             // 如果持久化失败，记录警告并抛出自定义异常，以便进行监控。
             log.warn("每日挑战题目持久化失败，将返回一个临时的（未持久化的）题目对象。Error: {}", e.getMessage());
             // 抛出异常，让全局异常处理器或调用方知道持久化失败了。
             throw new DailyTopicPersistenceException("Failed to persist daily topic for date: " + date + ", persona: " + personaKey, e);
+        }
+    }
+
+    private java.util.Optional<DailyTopic> safeFindByDateAndPersona(LocalDate date, String personaKey) {
+        try {
+            return repo.findByTopicDateAndPersona(date, personaKey);
+        } catch (Exception e) {
+            // 兼容历史坏数据：如果 payload 被错误写成 JSON 字符串，先删除再重建。
+            log.warn("读取每日挑战缓存失败，尝试清理异常记录并重建: date={}, persona={}, error={}",
+                    date, personaKey, e.getMessage());
+            try {
+                long deleted = repo.deleteByTopicDateAndPersona(date, personaKey);
+                log.warn("已清理异常每日挑战记录: date={}, persona={}, deleted={}", date, personaKey, deleted);
+            } catch (Exception cleanupEx) {
+                log.warn("清理异常每日挑战记录失败: date={}, persona={}, error={}",
+                        date, personaKey, cleanupEx.getMessage());
+            }
+            return java.util.Optional.empty();
         }
     }
 

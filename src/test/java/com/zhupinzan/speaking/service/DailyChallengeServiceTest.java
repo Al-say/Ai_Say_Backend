@@ -60,8 +60,8 @@ class DailyChallengeServiceTest {
         assertEquals("Cached Topic", result.getTitle());
         // 验证 topicGeneratorTask 的 generateFor 方法没有被调用
         verify(topicGeneratorTask, never()).generateFor(any(LocalDate.class), any(UserPersona.class));
-        // 验证 repository 的 upsert 方法没有被调用
-        verify(dailyTopicRepository, never()).upsertDailyTopic(any(), any(), any(), any(), any(), any());
+        // 验证 repository 的 save 方法没有被调用
+        verify(dailyTopicRepository, never()).save(any(DailyTopic.class));
     }
 
     @Test
@@ -76,11 +76,11 @@ class DailyChallengeServiceTest {
 
         // 第一次调用返回空，表示缓存未命中
         when(dailyTopicRepository.findByTopicDateAndPersona(today, persona.name()))
-            .thenReturn(Optional.empty())
-            // 第二次调用返回生成的主题，模拟upsert后的查询
-            .thenReturn(Optional.of(generatedTopic));
+            .thenReturn(Optional.empty());
 
         when(topicGeneratorTask.generateFor(today, persona)).thenReturn(generatedTopic);
+        when(dailyTopicRepository.save(any(DailyTopic.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
 
         // Act
         DailyTopic result = dailyChallengeService.getOrCreate(today, persona);
@@ -90,36 +90,21 @@ class DailyChallengeServiceTest {
         assertEquals("Generated Topic", result.getTitle());
         // 验证生成器被调用了一次
         verify(topicGeneratorTask, times(1)).generateFor(today, persona);
-        // 验证upsert方法被调用了一次
-        verify(dailyTopicRepository, times(1)).upsertDailyTopic(
-            eq(today),
-            eq(persona.name()),
-            eq("Generated Topic"),
-            any(),
-            any(),
-            anyString()
-        );
+        // 验证save方法被调用了一次
+        verify(dailyTopicRepository, times(1)).save(any(DailyTopic.class));
     }
 
     @Test
     @DisplayName("当生成器失败时，应返回兜底主题")
     void getOrCreate_shouldReturnFallback_whenGeneratorFails() throws Exception {
         // Arrange
-        when(dailyTopicRepository.findByTopicDateAndPersona(today, persona.name()))
-            .thenReturn(Optional.empty());
-        
         // 模拟生成器抛出异常
         when(topicGeneratorTask.generateFor(today, persona)).thenThrow(new RuntimeException("AI service unavailable"));
 
-        // 模拟upsert后的查询返回一个兜底topic
-        DailyTopic fallbackTopicForRepo = new DailyTopic();
-        fallbackTopicForRepo.setTitle("今日挑战 (兜底)");
-        fallbackTopicForRepo.setPersona(persona.name());
-        fallbackTopicForRepo.setTargetPersona(persona);
-        fallbackTopicForRepo.setPayload(Map.of("source", "static_fallback"));
         when(dailyTopicRepository.findByTopicDateAndPersona(today, persona.name()))
-            .thenReturn(Optional.empty()) // 第一次缓存未命中
-            .thenReturn(Optional.of(fallbackTopicForRepo)); // upsert后查询命中
+            .thenReturn(Optional.empty()); // 第一次缓存未命中
+        when(dailyTopicRepository.save(any(DailyTopic.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
 
         // Act
         DailyTopic result = dailyChallengeService.getOrCreate(today, persona);
@@ -130,14 +115,7 @@ class DailyChallengeServiceTest {
         assertEquals("static_fallback", result.getPayload().get("source"));
         // 验证生成器被调用了一次
         verify(topicGeneratorTask, times(1)).generateFor(today, persona);
-        // 验证upsert方法仍然被调用，保存的是兜底主题
-        verify(dailyTopicRepository, times(1)).upsertDailyTopic(
-            eq(today),
-            eq(persona.name()),
-            eq("今日挑战 (兜底)"),
-            any(),
-            any(),
-            contains("static_fallback")
-        );
+        // 验证save方法仍然被调用，保存的是兜底主题
+        verify(dailyTopicRepository, times(1)).save(any(DailyTopic.class));
     }
 }

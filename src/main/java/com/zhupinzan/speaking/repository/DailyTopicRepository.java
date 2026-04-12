@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.Optional;
@@ -131,6 +132,14 @@ public interface DailyTopicRepository extends JpaRepository<DailyTopic, Long> {
      * - 兼容旧版本的查询接口
      */
     Optional<DailyTopic> findByTopicDateAndPersona(LocalDate topicDate, String persona);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Transactional
+    @Query(value = """
+            DELETE FROM daily_topics
+            WHERE for_date = :topicDate AND persona = :persona
+            """, nativeQuery = true)
+    long deleteByTopicDateAndPersona(@Param("topicDate") LocalDate topicDate, @Param("persona") String persona);
 
     /**
      * 更新或插入每日题目（UPSERT操作）
