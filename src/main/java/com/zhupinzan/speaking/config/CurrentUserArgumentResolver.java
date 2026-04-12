@@ -5,10 +5,12 @@ import com.zhupinzan.speaking.util.CurrentUser;
 import com.zhupinzan.speaking.util.CurrentUserInfo;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.core.MethodParameter;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.support.WebDataBinderFactory;
 import org.springframework.web.context.request.NativeWebRequest;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.method.support.ModelAndViewContainer;
+import org.springframework.web.server.ResponseStatusException;
 
 /**
  * 自定义参数解析器，用于处理 {@link CurrentUser} 注解的参数注入。
@@ -184,13 +186,16 @@ public class CurrentUserArgumentResolver implements HandlerMethodArgumentResolve
         // 从Web请求中获取底层的HttpServletRequest对象
         HttpServletRequest request = webRequest.getNativeRequest(HttpServletRequest.class);
         if (request == null) {
-            // 在极少数情况下（例如，非HTTP请求环境），返回一个空的UserInfo对象
-            return new CurrentUserInfo(null, null);
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "未认证请求");
         }
 
         // 使用AuthContext工具类从请求属性中提取用户信息
         Long userId = AuthContext.getUserIdAsLong(request); // Changed to getUserIdAsLong
         String appleSub = AuthContext.getAppleSub(request);
+
+        if (userId == null || userId <= 0) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "请先登录");
+        }
 
         // 创建CurrentUserInfo实例
         return new CurrentUserInfo(userId, appleSub);

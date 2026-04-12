@@ -104,6 +104,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             // 3. 验证 Token 并提取用户邮箱 (作为 JWT 的主体)
             String email = jwtUtil.validateTokenAndGetSubject(token);
             Long userId = jwtUtil.extractUserId(token);
+            String appleSub = jwtUtil.extractAppleSub(token);
 
             if (email == null || userId == null) {
                 SecurityContextHolder.clearContext();
@@ -116,8 +117,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             // 兼容 @CurrentUser 解析：将认证信息写入 request attribute
             request.setAttribute("auth.userId", userId);
             request.setAttribute("auth.email", email);
-            // 历史字段兼容：当前系统已无 Apple 登录，临时复用 principal 标识
-            request.setAttribute("auth.appleSub", email);
+            // 历史字段兼容：优先使用 token 的 appleSub，缺失时回退到主体标识
+            request.setAttribute("auth.appleSub",
+                    (appleSub != null && !appleSub.isBlank()) ? appleSub : email);
 
             // 4. 检查 SecurityContext 是否已有认证信息（避免重复认证）
             // 并且确保从 JWT 中提取的 email 不为空

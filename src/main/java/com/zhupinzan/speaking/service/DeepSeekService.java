@@ -3,9 +3,10 @@ package com.zhupinzan.speaking.service;
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
+import com.zhupinzan.speaking.config.DeepSeekApiProperties;
 import com.zhupinzan.speaking.model.AssessmentResult;
 import okhttp3.*;
-import org.springframework.beans.factory.annotation.Value;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -16,30 +17,32 @@ import java.util.concurrent.TimeUnit;
  * DeepSeek服务类，用于调用DeepSeek AI API进行文本评估和对话
  */
 @Service
+@Slf4j
 public class DeepSeekService {
 
-    /** DeepSeek API密钥，从配置文件注入 */
-    @Value("${deepseek.api.key}")
-    private String apiKey;
-
-    /** DeepSeek API URL，从配置文件注入 */
-    @Value("${deepseek.api.url}")
-    private String apiUrl;
-
-    /** DeepSeek模型名称，从配置文件注入 */
-    @Value("${deepseek.api.model}")
-    private String model;
+    private final DeepSeekApiProperties deepSeekApiProperties;
 
     /** HTTP客户端，用于发送API请求 */
     private final OkHttpClient client;
 
     /** 构造函数，初始化HTTP客户端，设置超时时间 */
-    public DeepSeekService() {
+    public DeepSeekService(DeepSeekApiProperties deepSeekApiProperties) {
+        this.deepSeekApiProperties = deepSeekApiProperties;
+
+        if (deepSeekApiProperties.usesDeprecatedFallback()) {
+            log.warn("DeepSeekService config source: baseUrl={}, apiKey={} (deprecated fallback in use)",
+                    deepSeekApiProperties.baseUrlSource(), deepSeekApiProperties.apiKeySource());
+        } else {
+            log.info("DeepSeekService config source: baseUrl={}, apiKey={}",
+                    deepSeekApiProperties.baseUrlSource(), deepSeekApiProperties.apiKeySource());
+        }
+
+        long timeoutSeconds = Math.max(1, deepSeekApiProperties.effectiveTimeout().toSeconds());
         // AI 响应较慢，设置 60 秒超时，防止报 Timeout 错误
         this.client = new OkHttpClient.Builder()
                 .connectTimeout(30, TimeUnit.SECONDS)
-                .readTimeout(60, TimeUnit.SECONDS)
-                .writeTimeout(60, TimeUnit.SECONDS)
+                .readTimeout(timeoutSeconds, TimeUnit.SECONDS)
+                .writeTimeout(timeoutSeconds, TimeUnit.SECONDS)
                 .build();
     }
 
@@ -69,6 +72,14 @@ public class DeepSeekService {
      * @return AI 返回的 JSON 字符串内容
      */
     public String chat(String systemPrompt, String userPrompt) throws IOException {
+        String apiKey = deepSeekApiProperties.effectiveApiKey();
+        String apiUrl = deepSeekApiProperties.effectiveChatCompletionsUrl();
+        String model = deepSeekApiProperties.effectiveModel();
+
+        if (apiKey.isBlank()) {
+            throw new IOException("DeepSeek API key is missing (expected deepseek.api.api-key)");
+        }
+
         // 步骤1: 构建请求体
         JSONObject payload = new JSONObject();
         payload.put("model", model);

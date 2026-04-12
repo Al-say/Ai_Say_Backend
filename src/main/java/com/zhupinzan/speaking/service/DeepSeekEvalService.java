@@ -1,5 +1,6 @@
 package com.zhupinzan.speaking.service;
 
+import com.zhupinzan.speaking.config.DeepSeekApiProperties;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zhupinzan.speaking.model.UserPersona;
@@ -57,6 +58,7 @@ public class DeepSeekEvalService {
      * • 统一的错误处理
      */
     private final WebClient deepSeekWebClient;
+    private final DeepSeekApiProperties deepSeekApiProperties;
 
     /**
      * Jackson JSON处理器
@@ -138,7 +140,7 @@ public class DeepSeekEvalService {
                 systemPrompt.length(), userPrompt.length());
 
         Map<String, Object> body = Map.of(
-                "model", "deepseek-chat",
+                "model", deepSeekApiProperties.effectiveModel(),
                 "messages", new Object[] {
                         Map.of("role", "system", "content", systemPrompt),
                         Map.of("role", "user", "content", userPrompt)
@@ -154,7 +156,7 @@ public class DeepSeekEvalService {
                             resp -> resp.bodyToMono(String.class)
                                     .map(msg -> new IllegalArgumentException("DeepSeek 4xx错误: " + msg)))
                     .bodyToMono(String.class)
-                    .block(Duration.ofSeconds(30));
+                    .block(deepSeekApiProperties.effectiveTimeout());
 
             if (raw != null && raw.length() > 500) {
                 log.debug("DeepSeek响应（截断）: {}...{}",

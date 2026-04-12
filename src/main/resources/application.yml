@@ -45,9 +45,14 @@ spring:
 # DeepSeek AI API 配置 - 使用环境变量保护密钥
 deepseek:
   api:
-    key: ${DEEPSEEK_API_KEY:dummy-key}  # 环境变量优先,本地开发可用 dummy
-    url: ${DEEPSEEK_API_URL:https://api.deepseek.com/v1/chat/completions}
+    # 主配置键（推荐）
+    base-url: ${DEEPSEEK_API_BASE_URL:${DEEPSEEK_BASE_URL:${DEEPSEEK_API_URL:https://api.deepseek.com}}}
+    api-key: ${DEEPSEEK_API_KEY:dummy-key}  # 环境变量优先,本地开发可用 dummy
     model: ${DEEPSEEK_MODEL:deepseek-chat}
+    timeout: ${DEEPSEEK_TIMEOUT:30s}
+    # 兼容旧键（过渡期）
+    key: ${DEEPSEEK_API_KEY:}
+    url: ${DEEPSEEK_API_URL:}
 
 # JWT 认证配置 - 使用环境变量保护密钥
 jwt:

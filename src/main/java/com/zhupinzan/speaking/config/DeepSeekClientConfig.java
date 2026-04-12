@@ -3,7 +3,8 @@ package com.zhupinzan.speaking.config;
 import io.netty.channel.ChannelOption;
 import io.netty.handler.timeout.ReadTimeoutHandler;
 import io.netty.handler.timeout.WriteTimeoutHandler;
-import org.springframework.beans.factory.annotation.Value;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
@@ -30,8 +31,11 @@ import java.time.Duration;
  *
  * <h3>主要配置项</h3>
  * <ul>
- *   <li><b>deepseek.base-url</b>: DeepSeek API的基础URL，默认为"https://api.deepseek.com"</li>
- *   <li><b>deepseek.api-key</b>: 访问DeepSeek API所需的认证密钥</li>
+ *   <li><b>deepseek.api.base-url</b>: DeepSeek API的基础URL，默认为"https://api.deepseek.com"</li>
+ *   <li><b>deepseek.api.api-key</b>: 访问DeepSeek API所需的认证密钥</li>
+ *   <li><b>deepseek.api.model</b>: 调用模型名称</li>
+ *   <li><b>deepseek.api.timeout</b>: 网络超时时间</li>
+ *   <li>兼容旧键：<b>deepseek.base-url</b>、<b>deepseek.api-key</b>、<b>deepseek.api.key</b>、<b>deepseek.api.url</b></li>
  * </ul>
  *
  * <h3>技术实现要点</h3>
@@ -79,7 +83,11 @@ import java.time.Duration;
  * </ul>
  */
 @Configuration
+@RequiredArgsConstructor
+@Slf4j
 public class DeepSeekClientConfig {
+
+        private final DeepSeekApiProperties deepSeekApiProperties;
 
         /**
          * 创建DeepSeek API的WebClient Bean
@@ -107,21 +115,34 @@ public class DeepSeekClientConfig {
          * @return 配置好的WebClient实例
          */
         @Bean
-        public WebClient deepSeekWebClient(
-                        @Value("${deepseek.base-url:https://api.deepseek.com}") String baseUrl,
-                        @Value("${deepseek.api-key:}") String apiKey) {
+        public WebClient deepSeekWebClient() {
+                String baseUrl = deepSeekApiProperties.effectiveBaseUrl();
+                String apiKey = deepSeekApiProperties.effectiveApiKey();
+                Duration timeout = deepSeekApiProperties.effectiveTimeout();
+                int timeoutSeconds = Math.max(1, Math.toIntExact(timeout.toSeconds()));
+
+                if (deepSeekApiProperties.usesDeprecatedFallback()) {
+                        log.warn("DeepSeek config source: baseUrl={}, apiKey={} (deprecated fallback in use)",
+                                deepSeekApiProperties.baseUrlSource(), deepSeekApiProperties.apiKeySource());
+                } else {
+                        log.info("DeepSeek config source: baseUrl={}, apiKey={}",
+                                deepSeekApiProperties.baseUrlSource(), deepSeekApiProperties.apiKeySource());
+                }
+                log.info("DeepSeek effective config: baseUrl={}, model={}, timeout={}, apiKeyPresent={}",
+                        baseUrl, deepSeekApiProperties.effectiveModel(), timeout, !apiKey.isBlank());
+
                 // 配置Netty HttpClient，实现高性能HTTP连接
                 HttpClient httpClient = HttpClient.create()
                                 // 连接超时设置，避免长时间等待连接建立
                                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 5000)
                                 // 响应超时设置，限制整个请求处理时间
-                                .responseTimeout(Duration.ofSeconds(60))
+                                .responseTimeout(timeout)
                                 // 连接建立后的配置：添加读写超时处理器
                                 .doOnConnected(conn -> conn
-                                                // 读取超时：60秒，避免读取响应时长时间阻塞
-                                                .addHandlerLast(new ReadTimeoutHandler(60))
-                                                // 写入超时：60秒，避免发送请求时长时间阻塞
-                                                .addHandlerLast(new WriteTimeoutHandler(60)));
+                                                // 读取超时：与配置项保持一致
+                                                .addHandlerLast(new ReadTimeoutHandler(timeoutSeconds))
+                                                // 写入超时：与配置项保持一致
+                                                .addHandlerLast(new WriteTimeoutHandler(timeoutSeconds)));
 
                 // 构建WebClient，提供流畅的API调用体验
                 WebClient.Builder b = WebClient.builder()

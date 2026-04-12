@@ -90,6 +90,9 @@ public class JwtUtil {
 
         Map<String, Object> claims = new HashMap<>();
         claims.put("userId", account.getId());
+        if (account.getAppleSub() != null && !account.getAppleSub().isBlank()) {
+            claims.put("appleSub", account.getAppleSub());
+        }
 
         String token = createToken(claims, subject, now, expiryDate);
 
@@ -183,6 +186,22 @@ public class JwtUtil {
         }
         log.warn("userId claim 类型不匹配: {}", userIdObj);
         return null;
+    }
+
+    /**
+     * 从 Token 中提取 appleSub（用于兼容历史 owner 归属）。
+     *
+     * @param token JWT Token 字符串
+     * @return appleSub claim，如果不存在或为空则返回 null
+     */
+    public String extractAppleSub(String token) {
+        Claims claims = validateTokenAndGetClaims(token);
+        Object appleSubObj = claims.get("appleSub");
+        if (appleSubObj == null) {
+            return null;
+        }
+        String appleSub = String.valueOf(appleSubObj).trim();
+        return appleSub.isEmpty() ? null : appleSub;
     }
 
     /**
