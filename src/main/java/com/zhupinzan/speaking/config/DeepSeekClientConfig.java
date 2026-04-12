@@ -115,13 +115,13 @@ public class DeepSeekClientConfig {
                                 // 连接超时设置，避免长时间等待连接建立
                                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 5000)
                                 // 响应超时设置，限制整个请求处理时间
-                                .responseTimeout(Duration.ofSeconds(30))
+                                .responseTimeout(Duration.ofSeconds(60))
                                 // 连接建立后的配置：添加读写超时处理器
                                 .doOnConnected(conn -> conn
-                                                // 读取超时：30秒，避免读取响应时长时间阻塞
-                                                .addHandlerLast(new ReadTimeoutHandler(30))
-                                                // 写入超时：30秒，避免发送请求时长时间阻塞
-                                                .addHandlerLast(new WriteTimeoutHandler(30)));
+                                                // 读取超时：60秒，避免读取响应时长时间阻塞
+                                                .addHandlerLast(new ReadTimeoutHandler(60))
+                                                // 写入超时：60秒，避免发送请求时长时间阻塞
+                                                .addHandlerLast(new WriteTimeoutHandler(60)));
 
                 // 构建WebClient，提供流畅的API调用体验
                 WebClient.Builder b = WebClient.builder()
