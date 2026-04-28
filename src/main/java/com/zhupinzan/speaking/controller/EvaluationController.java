@@ -8,9 +8,11 @@ import com.zhupinzan.speaking.service.AsyncEvaluationService;
 import com.zhupinzan.speaking.util.CurrentUser;
 import com.zhupinzan.speaking.util.CurrentUserInfo;
 import jakarta.validation.Valid;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -35,7 +37,7 @@ public class EvaluationController {
     ) {
         Long ownerUserId = requireUserId(user);
 
-        UserPersona persona = UserPersona.valueOf(request.getPersona().toUpperCase());
+        UserPersona persona = parsePersona(request.getPersona());
         AsyncEvaluationResponse response = evaluationService.submitEvaluation(
                 persona, request.getScene(), request.getTranscript(), ownerUserId);
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
@@ -89,5 +91,19 @@ public class EvaluationController {
         }
 
         return keys;
+    }
+
+    private UserPersona parsePersona(String value) {
+        try {
+            return UserPersona.valueOf(value.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            String allowedValues = String.join(", ",
+                    Arrays.stream(UserPersona.values()).map(Enum::name).toList());
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "persona 参数无效，可选值: " + allowedValues,
+                    e
+            );
+        }
     }
 }

@@ -13,6 +13,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 
 /**
  * 口语能力评估REST控制器
@@ -233,32 +234,14 @@ public class EvalController {
      * @ ResponseEntity 包含模拟评估结果或错误信息
      */
     @PostMapping("/audio")
+    @Deprecated(since = "0.0.1", forRemoval = true)
     public ResponseEntity<?> evalAudio(
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "prompt", required = false) String prompt,
             @RequestParam(value = "persona", defaultValue = "EXAM_PREP") UserPersona persona) {
 
-        // 参数校验：确保音频文件存在
-        if (file.isEmpty()) {
-            return ResponseEntity.badRequest()
-                    .body(new EvalDTO.ErrorResp("BAD_REQUEST", "音频文件不能为空"));
-        }
-
-        try {
-            // 返回模拟的评估结果（仅用于演示）
-            EvalDTO.TextEvalResp resp = new EvalDTO.TextEvalResp();
-            resp.setFluency(80.0);    // 固定流畅度分数
-            resp.setCompleteness(75.0); // 固定完整度分数
-            resp.setRelevance(85.0);   // 固定相关度分数
-            resp.setSuggestions(java.util.List.of("发音清晰", "注意语调")); // 固定建议
-
-            return ResponseEntity.ok(resp);
-
-        } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(new EvalDTO.ErrorResp("AUDIO_PROCESS_FAILED", "处理失败: " + e.getMessage()));
-        }
+        return ResponseEntity.status(HttpStatus.GONE)
+                .body(new EvalDTO.ErrorResp("ENDPOINT_DEPRECATED", "请使用 /api/eval/audio/full 接口"));
     }
 
     /**
@@ -358,10 +341,10 @@ public class EvalController {
      */
     @PostMapping("/audio/full")
     public ResponseEntity<?> evaluateAudio(
+            @CurrentUser CurrentUserInfo user,
             @RequestParam("persona") UserPersona persona,
             @RequestParam("scene") String scene,
-            @RequestPart("audio") MultipartFile audioFile,
-            @RequestParam(value = "deviceId", required = false) String deviceIdParam) {
+            @RequestPart("audio") MultipartFile audioFile) {
 
         // 参数校验：确保音频文件存在且有效
         if (audioFile.isEmpty()) {
@@ -370,14 +353,8 @@ public class EvalController {
         }
 
         try {
-            // 步骤1：处理用户认证信息
-            // 如果用户未登录，使用默认设备ID或请求参数中的deviceId
-            String deviceId;
-            if (deviceIdParam != null && !deviceIdParam.trim().isEmpty()) {
-                deviceId = deviceIdParam;
-            } else {
-                deviceId = "anonymous-device-" + System.currentTimeMillis();
-            }
+            // 步骤1：从当前登录用户获取设备ID，避免客户端伪造 deviceId。
+            String deviceId = authUserService.requireDeviceId(user);
 
             // 步骤2：委托给评估编排服务处理完整的评估流程
             // 该服务将协调音频处理、语音识别、AI评估等多个步骤
@@ -386,6 +363,8 @@ public class EvalController {
             // 步骤3：返回评估结果
             return ResponseEntity.ok(result);
 
+        } catch (ResponseStatusException e) {
+            throw e;
         } catch (Exception e) {
             // 统一异常处理：捕获并格式化所有评估过程中可能发生的异常
             e.printStackTrace();

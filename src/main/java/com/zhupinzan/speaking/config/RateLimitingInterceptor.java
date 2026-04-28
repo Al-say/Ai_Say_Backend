@@ -11,8 +11,10 @@ import org.springframework.web.servlet.HandlerInterceptor;
 
 import java.io.IOException;
 import java.time.Instant;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * API 速率限制拦截器。
@@ -22,7 +24,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class RateLimitingInterceptor implements HandlerInterceptor {
 
     // 存储每个IP地址的请求信息 (请求计数和时间戳)
-    private final ConcurrentHashMap<String, RequestInfo> ipRequestCounts = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, RequestInfo> ipRequestCounts = new ConcurrentHashMap<>();
+    private final AtomicReference<Instant> lastCleanup = new AtomicReference<>(Instant.EPOCH);
 
     // 限制参数
     private final int maxRequests;      // 最大请求次数
@@ -38,6 +41,7 @@ public class RateLimitingInterceptor implements HandlerInterceptor {
         String clientIp = getClientIp(request);
         Instant now = Instant.now();
         log.info("RateLimitingInterceptor: Received request from IP: {}, Path: {}", clientIp, request.getRequestURI());
+        cleanupExpiredRequests(now);
 
         // 获取或创建IP的请求计数器
         RequestInfo requestInfo = ipRequestCounts.computeIfAbsent(clientIp, k -> new RequestInfo(now, new AtomicInteger(0)));
@@ -63,6 +67,18 @@ public class RateLimitingInterceptor implements HandlerInterceptor {
         log.debug("RateLimitingInterceptor: IP: {}, Request allowed. Current count: {}", clientIp, requestInfo.getCounter().get());
 
         return true; // 允许请求继续处理
+    }
+
+    private void cleanupExpiredRequests(Instant now) {
+        Instant previousCleanup = lastCleanup.get();
+        if (!previousCleanup.plusMillis(timeWindowMillis).isBefore(now)) {
+            return;
+        }
+        if (!lastCleanup.compareAndSet(previousCleanup, now)) {
+            return;
+        }
+        ipRequestCounts.entrySet().removeIf(entry ->
+                entry.getValue().getStartTime().plusMillis(timeWindowMillis).isBefore(now));
     }
 
     /**
